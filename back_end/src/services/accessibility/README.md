@@ -21,6 +21,15 @@ Goal: produce a unified dataset that flags wheelchair-accessible segments in Tor
 - [ ] Add caching + rate limiting for third-party API calls; follow each provider’s usage terms.
 - [ ] Document the resulting schema in `schema.md` so the routing team knows what to expect.
 
+### Running the OpenSidewalks Extract
+
+```bash
+cd back_end
+npm run fetch:opensidewalks
+```
+
+This saves a GeoJSON file to `data/raw/opensidewalks/toronto_sidewalks.geojson` using a downtown Toronto bounding box by default. Update `TORONTO_BBOX` or `OUTPUT_PATH` environment variables if you need different regions or filenames.
+
 ## Collaboration Tips
 
 - Share fixture datasets (`/data/fixtures/accessible_segments.sample.json`) so the routing engine can develop without running the whole ETL.

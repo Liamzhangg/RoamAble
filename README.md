@@ -44,6 +44,10 @@ root
    │  ├─ models/        # (Future) persistence layer
    │  └─ server.js      # API entry point
    └─ package.json
+
+## Data Scripts
+
+- `cd back_end && npm run fetch:opensidewalks` – pull Toronto sidewalk/footway data from the Overpass API into `back_end/data/raw/opensidewalks/`.
 ```
 
 You can add more folders (e.g., `/docs`, `/scripts`) if they help accelerate development—just keep this diagram current.
