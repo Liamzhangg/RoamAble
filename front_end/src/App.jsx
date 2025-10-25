@@ -1,22 +1,26 @@
 import { useState } from "react";
 import "./App.css";
-import "leaflet/dist/leaflet.css"; // if you’ll include maps later
-import FiltersBar from "./components/FiltersBar";
-import SearchBox from "./components/SearchBox";
-import AddReviewModal from "./components/AddReviewModal";
+import "leaflet/dist/leaflet.css";
+
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+
+// Fix Leaflet marker icons (required in Vite)
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: new URL("leaflet/dist/images/marker-icon-2x.png", import.meta.url),
+  iconUrl: new URL("leaflet/dist/images/marker-icon.png", import.meta.url),
+  shadowUrl: new URL("leaflet/dist/images/marker-shadow.png", import.meta.url),
+});
 
 function App() {
-  const [count, setCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filters, setFilters] = useState({ wheelchair: false });
 
-  const handleSearch = (query) => {
-    console.log("Searching for:", query);
-  };
-
-  const handleSubmitReview = (data) => {
-    console.log("Submitting review:", data);
-  };
+  const dummyPlaces = [
+    { id: 1, name: "CN Tower", lat: 43.6426, lng: -79.3871, accessibility: 4 },
+    { id: 2, name: "Royal Ontario Museum", lat: 43.6677, lng: -79.3948, accessibility: 5 },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col items-center p-6">
@@ -28,44 +32,36 @@ function App() {
         </p>
       </header>
 
-      {/* Search + Filters */}
-      <div className="w-full max-w-3xl flex flex-col gap-4 mb-6">
-        <SearchBox onSearch={handleSearch} />
-        <FiltersBar filters={filters} setFilters={setFilters} />
+      {/* Map Container */}
+      <div className="w-full max-w-5xl rounded-2xl shadow-md h-[500px] overflow-hidden mb-6">
+        <MapContainer
+          center={[43.6532, -79.3832]}
+          zoom={13}
+          scrollWheelZoom
+          style={{ height: "100%", width: "100%" }}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {dummyPlaces.map((place) => (
+            <Marker key={place.id} position={[place.lat, place.lng]}>
+              <Popup>
+                <h3 className="font-semibold">{place.name}</h3>
+                <p>Accessibility: {place.accessibility}/5</p>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
       </div>
 
-      {/* Placeholder for map */}
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-md h-[400px] flex items-center justify-center">
-        <p className="text-gray-400">🗺️ Map will appear here</p>
-      </div>
-
-      {/* Button to open Add Review Modal */}
+      {/* Add Review Button */}
       <button
         onClick={() => setIsModalOpen(true)}
-        className="mt-6 px-5 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition"
+        className="mt-4 px-5 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition"
       >
         ➕ Add Review
       </button>
-
-      {/* Example Counter from original Vite template */}
-      <div className="mt-8 text-center">
-        <button
-          onClick={() => setCount((count) => count + 1)}
-          className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-        >
-          Count is {count}
-        </button>
-        <p className="mt-2 text-sm text-gray-500">
-          Edit <code>src/App.jsx</code> and save to test HMR.
-        </p>
-      </div>
-
-      {/* Add Review Modal */}
-      <AddReviewModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleSubmitReview}
-      />
     </div>
   );
 }
