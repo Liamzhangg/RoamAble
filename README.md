@@ -32,6 +32,17 @@ Update this table as soon as the tech stack is locked in so the whole team stays
 root
 ├─ front_end/   # Front-end app (web or mobile)
 └─ back_end/    # APIs, workers, infra
+   ├─ src/
+   │  ├─ routes/        # Express route definitions
+   │  ├─ controllers/   # Request handlers
+   │  ├─ services/
+   │  │  ├─ map_data/   # Google Maps integration layer
+   │  │  └─ routing/    # Accessibility-aware pathfinding
+   │  ├─ config/        # Env + provider setup
+   │  ├─ middleware/    # Auth/validation hooks
+   │  ├─ models/        # (Future) persistence layer
+   │  └─ server.js      # API entry point
+   └─ package.json
 ```
 
 You can add more folders (e.g., `/docs`, `/scripts`) if they help accelerate development—just keep this diagram current.

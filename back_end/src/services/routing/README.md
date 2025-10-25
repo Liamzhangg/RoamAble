@@ -13,7 +13,7 @@ Calculates accessibility-aware routes using enriched map data.
 
 - [ ] Define the graph schema (nodes, edges, accessibility attributes, penalties).
 - [ ] Prototype routing algorithms with mocked map data.
-- [ ] Add a service entry point (e.g., `routingService.ts`) and document expected request/response payloads.
+- [ ] Add a service entry point (e.g., `routingService.js`) and document expected request/response payloads.
 
 ## Collaboration Tips
 

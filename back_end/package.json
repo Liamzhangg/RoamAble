@@ -1,9 +1,10 @@
 {
   "name": "back_end",
   "version": "1.0.0",
-  "description": "Two primary workstreams so teammates can build in parallel:",
-  "main": "index.js",
+  "description": "Accessible routing backend for NewHacks 2025",
+  "main": "src/server.js",
   "scripts": {
+    "dev": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
