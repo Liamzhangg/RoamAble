@@ -1,13 +1,13 @@
 # NewHacks 2025 Project
 
-Kick off for our 24-hour NewHacks 2025 build. This repository is structured to let the team ship fast: a dedicated `FrontEnd` workspace for the UI and a `BackEnd` workspace for services and APIs.
+Kick off for our 24-hour NewHacks 2025 build. This repository is structured to let the team ship fast: a dedicated `front_end` workspace for the UI and a `back_end` workspace for services and APIs.
 
 ## Quick Start
 
 1. Clone the repo: `git clone <repo-url>`
 2. Install dependencies for each part of the stack:
-   - `FrontEnd`: _add framework/command (e.g., `npm install`)_
-   - `BackEnd`: _add framework/command (e.g., `pip install -r requirements.txt`)_
+   - `front_end`: _add framework/command (e.g., `npm install`)_
+   - `back_end`: _add framework/command (e.g., `pip install -r requirements.txt`)_
 3. Run both services locally and iterate.
 
 ## Project Overview
@@ -20,8 +20,8 @@ Kick off for our 24-hour NewHacks 2025 build. This repository is structured to l
 
 | Area      | Stack (tentative)              | Notes                                |
 |-----------|--------------------------------|--------------------------------------|
-| FrontEnd  | _React / Next.js / Expo / ..._ | keep all UI code in `/FrontEnd`.     |
-| BackEnd   | _FastAPI / Express / Supabase_ | keep all server code in `/BackEnd`.  |
+| Front End | _React / Next.js / Expo / ..._ | keep all UI code in `/front_end`.    |
+| Back End  | _FastAPI / Express / Supabase_ | keep all server code in `/back_end`. |
 | Tooling   | _Supabase / Firebase / Stripe_ | jot down external services here.     |
 
 Update this table as soon as the tech stack is locked in so the whole team stays aligned.
@@ -30,8 +30,8 @@ Update this table as soon as the tech stack is locked in so the whole team stays
 
 ```text
 root
-├─ FrontEnd/    # Front-end app (web or mobile)
-└─ BackEnd/     # APIs, workers, infra
+├─ front_end/   # Front-end app (web or mobile)
+└─ back_end/    # APIs, workers, infra
 ```
 
 You can add more folders (e.g., `/docs`, `/scripts`) if they help accelerate development—just keep this diagram current.
@@ -59,4 +59,3 @@ You can add more folders (e.g., `/docs`, `/scripts`) if they help accelerate dev
 ## Attribution
 
 Drop in any assets, libraries, datasets, or inspirations you rely on so credit is ready for submission forms.
-
