@@ -1,21 +1,22 @@
+import logo from "../assets/logo.png";
+
 function NavBar({ onSignIn }) {
   return (
-    <nav className="nav-bar">
-      <div className="brand">
-        <span className="brand__icon" aria-hidden="true">
-          ♿
-        </span>
-        Accessible Travel Finder
-      </div>
-      <div className="nav-bar__links">
-        <a href="#map">Map</a>
-        <a href="#list">Places</a>
-        <a href="#stories">Stories</a>
-      </div>
-      <button className="btn btn-secondary" onClick={onSignIn}>
-        Sign in
-      </button>
-    </nav>
+    <header className="header-bar">
+      <img src={logo} alt="Accessible Travel Finder" className="brand-logo" />
+      <p className="brand-title">Accessible Travel Finder</p>
+      <nav className="nav-bar">
+        <div className="nav-bar__links">
+          <a href="#map">Routes</a>
+          <a href="#list">Top Attractions</a>
+          <a href="#restaurants">Restaurants</a>
+          <a href="#stories">Reviews</a>
+        </div>
+        <button className="nav-signin" onClick={onSignIn}>
+          Sign in
+        </button>
+      </nav>
+    </header>
   );
 }
 

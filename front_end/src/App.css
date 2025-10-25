@@ -16,59 +16,183 @@
     radial-gradient(circle at bottom, #fef3c7, transparent 45%), #f5f6f8;
 }
 
+/* Full-screen map background container */
+.map-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+.map-bg .leaflet-container {
+  width: 100dvw;
+  height: 100dvh;
+}
+
+/* Overlay layer for widgets (non-blocking by default) */
 .app-shell {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 32px 24px 64px;
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  display: block;
+  color: var(--text);
+  pointer-events: none; /* let map receive interactions except on widgets */
+}
+
+/* Fixed top navbar, centered */
+.header-bar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: auto; /* clickable */
   display: flex;
-  flex-direction: column;
-  gap: 24px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 20px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-radius: 180px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  flex-wrap: nowrap;
+  width: calc(100dvw - 32px);
+  max-width: 1200px;
+}
+
+.brand-logo {
+  height: 64px;
+  width: auto;
+  object-fit: contain;
+}
+
+.brand-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
   color: var(--text);
 }
 
 .nav-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 24px;
-  background: var(--surface);
-  border-radius: 18px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-}
-
-.brand {
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.brand__icon {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: #e0f2fe;
+  justify-content: flex-end;
+  gap: 24px;
+  margin-left: auto;
+  flex: 1;
 }
 
 .nav-bar__links {
   display: flex;
-  gap: 18px;
-  font-size: 0.95rem;
-  color: var(--subtle-text);
+  gap: 20px;
+  font-size: 1rem;
+  color: var(--text);
+  font-weight: 500;
 }
 
 .nav-bar__links a {
   text-decoration: none;
   padding-bottom: 2px;
   border-bottom: 2px solid transparent;
+  color: inherit;
 }
 
 .nav-bar__links a:hover {
   border-color: var(--accent);
+}
+
+.nav-signin {
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Floating cards for search and filters */
+.overlay-card {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
+.overlay-search {
+  top: 72px;
+  left: 16px;
+  width: 300px;
+}
+
+.overlay-filters {
+  top: 72px;
+  right: 16px;
+  width: 320px;
+}
+
+/* Floating overlay panel (left column list) */
+.overlay-panel {
+  position: fixed;
+  top: 140px; /* leaves room for nav + search row */
+  left: 16px;
+  width: 300px;
+  max-height: calc(100dvh - 156px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto; /* clickable */
+}
+
+.overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.overlay-title { font-weight: 600; }
+
+.overlay-panel__body {
+  padding: 10px;
+  overflow: auto;
+}
+
+.overlay-panel.is-collapsed .overlay-panel__body { display: none; }
+
+/* Compact list styles inside overlay */
+.overlay-panel .place-card {
+  gap: 12px;
+  padding: 12px;
+}
+.overlay-panel .place-card__image { width: 72px; height: 72px; }
+.overlay-panel .place-card__description { font-size: 0.9rem; }
+.overlay-panel .rating-badge { padding: 2px 8px; }
+
+/* Floating action button */
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  pointer-events: auto;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35);
+  cursor: pointer;
+  z-index: 2;
 }
 
 .btn {
@@ -165,10 +289,10 @@
 
 .eyebrow {
   text-transform: uppercase;
-  font-size: 0.75rem;
+  font-size: 1rem;
   letter-spacing: 0.12em;
   color: var(--accent);
-  margin-bottom: 4px;
+  margin-bottom: 14px;
 }
 
 .layout {
@@ -571,6 +695,7 @@
   justify-content: center;
   padding: 24px;
   z-index: 20;
+  pointer-events: auto; /* ensure clicks captured over map */
 }
 
 .login-modal {
