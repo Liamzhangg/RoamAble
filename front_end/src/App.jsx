@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 
 import FiltersBar from "./ui_ux_design/filters_bar.jsx";
@@ -18,6 +18,8 @@ L.Icon.Default.mergeOptions({
   iconUrl: new URL("leaflet/dist/images/marker-icon.png", import.meta.url),
   shadowUrl: new URL("leaflet/dist/images/marker-shadow.png", import.meta.url),
 });
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api";
 
 const PLACES = [
   {
@@ -59,6 +61,14 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submittedReviews, setSubmittedReviews] = useState([]);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState([43.6532, -79.3832]);
+  const [locationError, setLocationError] = useState("");
+  const [destinationQuery, setDestinationQuery] = useState("");
+  const [destinationResults, setDestinationResults] = useState([]);
+  const [isSearchingDestination, setIsSearchingDestination] = useState(false);
+  const [selectedDestination, setSelectedDestination] = useState(null);
+  const [routeResult, setRouteResult] = useState(null);
+  const [routeError, setRouteError] = useState("");
 
   const handleSearch = (query) => {
     setSearchQuery(query);
@@ -69,6 +79,101 @@ function App() {
       ...previous,
       { ...data, id: `${Date.now()}`, createdAt: new Date().toISOString() },
     ]);
+  };
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation unavailable in this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation([position.coords.latitude, position.coords.longitude]);
+        setLocationError("");
+      },
+      (error) => {
+        console.warn("Geolocation error", error);
+        setLocationError("Using downtown Toronto as a starting point.");
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!destinationQuery) {
+      setDestinationResults([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      try {
+        setIsSearchingDestination(true);
+        const response = await fetch(
+          `${API_BASE_URL}/map/search?query=${encodeURIComponent(destinationQuery)}&limit=5`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) {
+          throw new Error("Failed to search destinations");
+        }
+        const data = await response.json();
+        setDestinationResults(data.results || []);
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error(error);
+        }
+      } finally {
+        setIsSearchingDestination(false);
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [destinationQuery]);
+
+  const requestRoute = async (destination) => {
+    if (!destination) return;
+    setRouteError("");
+    setRouteResult(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/routes/walking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start: { lat: userLocation[0], lon: userLocation[1] },
+          end: {
+            lat: destination.lat,
+            lon: destination.lon,
+          },
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "Routing failed");
+      }
+      const data = await response.json();
+      setRouteResult(data.route);
+    } catch (error) {
+      console.error(error);
+      setRouteError(error.message || "Unable to compute route.");
+    }
+  };
+
+  const handleDestinationSelect = (result) => {
+    const lat = Number(result.lat);
+    const lon = Number(result.lon);
+    const destination = {
+      id: result.place_id,
+      name: result.display_name,
+      lat,
+      lon,
+    };
+    setDestinationQuery(result.display_name);
+    setDestinationResults([]);
+    setSelectedDestination(destination);
+    requestRoute(destination);
   };
 
   const filteredPlaces = useMemo(() => {
@@ -101,6 +206,20 @@ function App() {
       setSelectedPlace(filteredPlaces[0]);
     }
   }, [filteredPlaces, selectedPlace]);
+
+  const routeMetrics = routeResult?.metrics;
+  const routeDistanceKm =
+    routeMetrics?.total_distance_m != null
+      ? (routeMetrics.total_distance_m / 1000).toFixed(2)
+      : null;
+  const routeAverageScore =
+    routeMetrics?.average_accessibility_score != null
+      ? routeMetrics.average_accessibility_score.toFixed(2)
+      : null;
+  const routeAccessiblePercent =
+    routeMetrics?.accessible_segment_ratio != null
+      ? Math.round(routeMetrics.accessible_segment_ratio * 100)
+      : null;
 
   return (
     <div className="app-shell">
@@ -136,6 +255,22 @@ function App() {
               attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <Marker position={userLocation}>
+              <Popup>Your location</Popup>
+            </Marker>
+            {selectedDestination && (
+              <Marker position={[selectedDestination.lat, selectedDestination.lon]}>
+                <Popup>{selectedDestination.name}</Popup>
+              </Marker>
+            )}
+            {routeResult?.polyline && (
+              <Polyline
+                positions={routeResult.polyline.map(([lat, lon]) => [lat, lon])}
+                color="#2563eb"
+                weight={6}
+                opacity={0.75}
+              />
+            )}
             {filteredPlaces.map((place) => (
               <Marker
                 key={place.id}
@@ -152,6 +287,61 @@ function App() {
               </Marker>
             ))}
           </MapContainer>
+
+          <div className="route-panel">
+            <label className="route-panel__label">
+              Where do you want to go?
+              <input
+                className="route-panel__input"
+                type="text"
+                value={destinationQuery}
+                onChange={(event) => {
+                  setDestinationQuery(event.target.value);
+                  setRouteError("");
+                }}
+                placeholder="Search for an accessible destination"
+              />
+            </label>
+            {destinationResults.length > 0 && (
+              <ul className="route-panel__results">
+                {destinationResults.map((result) => (
+                  <li key={result.place_id}>
+                    <button type="button" onClick={() => handleDestinationSelect(result)}>
+                      <span className="label">{result.display_name}</span>
+                      <span className="meta">
+                        {Number(result.lat).toFixed(4)}, {Number(result.lon).toFixed(4)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {isSearchingDestination && (
+              <p className="route-panel__hint">Searching destinations...</p>
+            )}
+            {locationError && <p className="route-panel__hint">{locationError}</p>}
+            {routeError && <p className="route-panel__error">{routeError}</p>}
+            {routeResult?.success && (
+              <div className="route-panel__summary">
+                <h4>Route summary</h4>
+                {routeDistanceKm && (
+                  <p>
+                    Distance: <strong>{routeDistanceKm} km</strong>
+                  </p>
+                )}
+                {routeAverageScore && (
+                  <p>
+                    Accessibility score: <strong>{routeAverageScore}</strong>
+                  </p>
+                )}
+                {routeAccessiblePercent != null && (
+                  <p>
+                    Accessible segments: <strong>{routeAccessiblePercent}%</strong>
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Selected Place Info */}
           {selectedPlace && (

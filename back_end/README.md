@@ -24,3 +24,13 @@ Supporting folders:
 Define shared data contracts early (e.g., a `Segment` JSON schema with accessibility attributes) and keep them in a `contracts/` module if helpful. This keeps the codebases decoupled while letting both be developed simultaneously. 
 
 Consider setting up a small Express/Fastify gateway later that composes both services into public endpoints.
+
+## API Endpoints
+
+The Express server registers these JSON endpoints (see `src/routes/api.js`):
+
+- `GET /api/map/search?query=...` – proxy to OpenStreetMap Nominatim search.
+- `POST /api/routes/walking` – returns a wheelchair-aware walking route given `{ start: { lat, lon }, end: { lat, lon } }`.
+- `POST /api/routes/transit` – placeholder for future multimodal routing (currently falls back to walking).
+
+Run the server with `node src/server.js` and use `ALLOWED_ORIGIN` to restrict CORS if needed (`ALLOWED_ORIGIN=http://localhost:5173` during local dev).
