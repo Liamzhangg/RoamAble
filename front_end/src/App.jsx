@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
 import "./App.css";
+import "leaflet/dist/leaflet.css";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+
 import FiltersBar from "./ui_ux_design/filters_bar.jsx";
 import SearchBox from "./ui_ux_design/search_box.jsx";
 import AddReviewModal from "./ui_ux_design/add_review_modal.jsx";
@@ -7,74 +11,38 @@ import NavBar from "./ui_ux_design/nav_bar.jsx";
 import PlaceList from "./ui_ux_design/place_list.jsx";
 import LoginScreen from "./ui_ux_design/login_screen.jsx";
 
+// Fix Leaflet marker icons for Vite
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: new URL("leaflet/dist/images/marker-icon-2x.png", import.meta.url),
+  iconUrl: new URL("leaflet/dist/images/marker-icon.png", import.meta.url),
+  shadowUrl: new URL("leaflet/dist/images/marker-shadow.png", import.meta.url),
+});
+
 const PLACES = [
   {
     id: "p-1",
     name: "Harbourfront Centre",
     location: "Toronto, Canada",
     rating: 4.8,
-    reviews: 214,
+    lat: 43.6376,
+    lng: -79.3816,
     tags: ["Step-free", "Assistive audio"],
-    features: {
-      wheelchair: true,
-      braille: false,
-      assistiveAudio: true,
-    },
+    features: { wheelchair: true, braille: false, assistiveAudio: true },
     description:
       "Waterfront arts hub with elevators, tactile markers, and staff trained in accessible guest support.",
-    photo:
-      "https://images.unsplash.com/photo-1505764706515-aa95265c5abc?auto=format&fit=crop&w=400&q=60",
   },
   {
     id: "p-2",
-    name: "Sunflower Cafe",
-    location: "Lisbon, Portugal",
-    rating: 4.6,
-    reviews: 97,
+    name: "Royal Ontario Museum",
+    location: "Toronto, Canada",
+    rating: 4.7,
+    lat: 43.6677,
+    lng: -79.3948,
     tags: ["Braille menu", "Quiet hours"],
-    features: {
-      wheelchair: true,
-      braille: true,
-      assistiveAudio: false,
-    },
+    features: { wheelchair: true, braille: true, assistiveAudio: false },
     description:
-      "Neighborhood cafe with wider aisles, braille menus, and quiet hours for sensory-sensitive guests.",
-    photo:
-      "https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=400&q=60",
-  },
-  {
-    id: "p-3",
-    name: "Aurora Gallery",
-    location: "Reykjavík, Iceland",
-    rating: 4.9,
-    reviews: 162,
-    tags: ["Guided touch tour", "Audio guides"],
-    features: {
-      wheelchair: true,
-      braille: true,
-      assistiveAudio: true,
-    },
-    description:
-      "Modern art space highlighting Nordic artists with guided touch tours and descriptive audio.",
-    photo:
-      "https://images.unsplash.com/photo-1465310477141-6fb93167a273?auto=format&fit=crop&w=400&q=60",
-  },
-  {
-    id: "p-4",
-    name: "Skyline Rooftop",
-    location: "Chicago, USA",
-    rating: 4.4,
-    reviews: 58,
-    tags: ["Reserved seating", "Wide pathways"],
-    features: {
-      wheelchair: true,
-      braille: false,
-      assistiveAudio: false,
-    },
-    description:
-      "Elevator-accessible rooftop with movable seating, textured wayfinding, and staff assistance.",
-    photo:
-      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=60",
+      "Museum with elevators, braille exhibits, and staff assistance for mobility access.",
   },
 ];
 
@@ -87,8 +55,9 @@ const DEFAULT_FILTERS = {
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [selectedPlace, setSelectedPlace] = useState(PLACES[0]);
+  const [selectedPlace, setSelectedPlace] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [submittedReviews, setSubmittedReviews] = useState([]);
 
   const handleSearch = (query) => {
@@ -98,11 +67,7 @@ function App() {
   const handleSubmitReview = (data) => {
     setSubmittedReviews((previous) => [
       ...previous,
-      {
-        ...data,
-        id: `${Date.now()}`,
-        createdAt: new Date().toISOString(),
-      },
+      { ...data, id: `${Date.now()}`, createdAt: new Date().toISOString() },
     ]);
   };
 
@@ -125,71 +90,75 @@ function App() {
     });
   }, [filters, searchQuery]);
 
+  // 🔹 Show LoginScreen first
+  if (!isLoggedIn) {
+    return <LoginScreen onLoginSuccess={() => setIsLoggedIn(true)} />;
+  }
+
   return (
     <div className="app-shell">
       <NavBar />
-      <header className="hero">
-        <div>
-          <p className="eyebrow">Plan inclusive journeys</p>
-          <h1>Find spots that welcome every traveler</h1>
-          <p className="hero__subtitle">
-            Curated accessibility notes, crowdsourced in real-time by locals and
-            travelers who care.
-          </p>
-          <div className="hero__actions">
-            <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-              Share a review
-            </button>
-            <button className="btn btn-ghost">Explore cities</button>
-          </div>
-        </div>
-        <div className="hero__stats">
-          <div>
-            <strong>2,400+</strong>
-            <span>verified listings</span>
-          </div>
-          <div>
-            <strong>38</strong>
-            <span>cities mapped</span>
-          </div>
-          <div>
-            <strong>{submittedReviews.length}</strong>
-            <span>new reviews today</span>
-          </div>
-        </div>
+      <header className="hero text-center">
+        <h1 className="text-3xl font-bold mb-2">Find Accessible Locations</h1>
+        <p className="text-gray-600">
+          Discover places with real accessibility reviews 🌍
+        </p>
       </header>
 
-      <main className="layout">
-        <section className="map-panel" id="map">
-          <div className="map-panel__placeholder">
-            <p>Map view coming soon.</p>
-            {selectedPlace && (
-              <div className="selected-place">
-                <p className="eyebrow">Pinned</p>
-                <h3>{selectedPlace.name}</h3>
-                <p className="selected-place__location">
-                  {selectedPlace.location}
-                </p>
-                <p>{selectedPlace.description}</p>
-                <div className="selected-place__tags">
-                  {selectedPlace.tags?.map((tag) => (
-                    <span key={tag} className="tag">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  Review this place
-                </button>
+      <main className="layout grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+        {/* 🗺️ Map Section */}
+        <section className="map-panel rounded-xl overflow-hidden shadow-md">
+          <MapContainer
+            center={[43.6532, -79.3832]}
+            zoom={13}
+            scrollWheelZoom
+            style={{ height: "400px", width: "100%" }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {filteredPlaces.map((place) => (
+              <Marker
+                key={place.id}
+                position={[place.lat, place.lng]}
+                eventHandlers={{
+                  click: () => setSelectedPlace(place),
+                }}
+              >
+                <Popup>
+                  <strong>{place.name}</strong>
+                  <br />
+                  Accessibility: {place.rating}/5
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+
+          {/* Selected Place Info */}
+          {selectedPlace && (
+            <div className="p-4 bg-white shadow-inner mt-2 rounded-xl">
+              <h3 className="text-lg font-semibold">{selectedPlace.name}</h3>
+              <p className="text-gray-600">{selectedPlace.description}</p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedPlace.tags?.map((tag) => (
+                  <span key={tag} className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                    {tag}
+                  </span>
+                ))}
               </div>
-            )}
-          </div>
+              <button
+                className="btn btn-primary mt-3"
+                onClick={() => setIsModalOpen(true)}
+              >
+                Add Review
+              </button>
+            </div>
+          )}
         </section>
 
-        <section className="list-panel" id="list">
+        {/* 📋 List + Filters Section */}
+        <section className="list-panel bg-white rounded-xl shadow-md p-4">
           <SearchBox initialQuery={searchQuery} onSearch={handleSearch} />
           <FiltersBar filters={filters} onChange={setFilters} />
           <PlaceList
@@ -198,7 +167,7 @@ function App() {
             onSelect={setSelectedPlace}
           />
           <button
-            className="btn btn-outline full-width"
+            className="btn btn-outline full-width mt-4"
             onClick={() => setIsModalOpen(true)}
           >
             + Add a community review
@@ -206,8 +175,7 @@ function App() {
         </section>
       </main>
 
-      <LoginScreen />
-
+      {/* 📝 Review Modal */}
       <AddReviewModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
