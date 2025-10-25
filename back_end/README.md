@@ -2,8 +2,9 @@
 
 Two primary workstreams so teammates can build in parallel:
 
-1. **`src/services/map_data/`** – integrates with Google Maps (or other providers), handles authentication, pulls base map data, and emits normalized DTOs.
-2. **`src/services/routing/`** – consumes normalized data, layers accessibility constraints, and returns optimal routes tailored to user profiles.
+1. **`src/services/map_data/`** – integrates with OpenStreetMap (or other providers), handles authentication, pulls base map data, and emits normalized DTOs.
+2. **`src/services/accessibility/`** – ingests OpenSidewalks + Wheelmap/AccessNow data to build accessibility-aware segment datasets.
+3. **`src/services/routing/`** – consumes normalized data, layers accessibility constraints, and returns optimal routes tailored to user profiles.
 
 Supporting folders:
 

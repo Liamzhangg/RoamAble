@@ -36,8 +36,9 @@ root
    │  ├─ routes/        # Express route definitions
    │  ├─ controllers/   # Request handlers
    │  ├─ services/
-   │  │  ├─ map_data/   # Google Maps integration layer
-   │  │  └─ routing/    # Accessibility-aware pathfinding
+   │  │  ├─ map_data/       # OpenStreetMap integration layer
+   │  │  ├─ accessibility/  # Aggregates accessibility datasets
+   │  │  └─ routing/        # Accessibility-aware pathfinding
    │  ├─ config/        # Env + provider setup
    │  ├─ middleware/    # Auth/validation hooks
    │  ├─ models/        # (Future) persistence layer
