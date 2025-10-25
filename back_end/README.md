@@ -12,4 +12,4 @@ Two primary workstreams so teammates can build in parallel:
 
 Define shared data contracts early (e.g., a `Segment` JSON schema with accessibility attributes) and keep them in a `contracts/` module if helpful. This keeps the codebases decoupled while letting both be developed simultaneously. 
 
-Consider setting up a small FastAPI/Express gateway later that composes both services into public endpoints.
+Consider setting up a small Express/Fastify gateway later that composes both services into public endpoints.

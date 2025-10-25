@@ -6,8 +6,8 @@ Kick off for our 24-hour NewHacks 2025 build. This repository is structured to l
 
 1. Clone the repo: `git clone <repo-url>`
 2. Install dependencies for each part of the stack:
-   - `front_end`: _add framework/command (e.g., `npm install`)_
-   - `back_end`: _add framework/command (e.g., `pip install -r requirements.txt`)_
+   - `front_end`: `cd front_end && npm install`
+   - `back_end`: `cd back_end && npm install`
 3. Run both services locally and iterate.
 
 ## Project Overview
@@ -21,7 +21,7 @@ Kick off for our 24-hour NewHacks 2025 build. This repository is structured to l
 | Area      | Stack (tentative)              | Notes                                |
 |-----------|--------------------------------|--------------------------------------|
 | Front End | _React / Next.js / Expo / ..._ | keep all UI code in `/front_end`.    |
-| Back End  | _FastAPI / Express / Supabase_ | keep all server code in `/back_end`. |
+| Back End  | Node.js + Express/Fastify      | keep all server code in `/back_end`. |
 | Tooling   | _Supabase / Firebase / Stripe_ | jot down external services here.     |
 
 Update this table as soon as the tech stack is locked in so the whole team stays aligned.
