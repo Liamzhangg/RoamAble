@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node src/server.js",
     "fetch:opensidewalks": "node scripts/fetch_opensidewalks.js",
+    "process:accessibility": "node scripts/process_accessibility.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
