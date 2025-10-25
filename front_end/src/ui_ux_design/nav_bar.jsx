@@ -7,10 +7,11 @@ function NavBar({ onSignIn }) {
       <p className="brand-title">Accessible Travel Finder</p>
       <nav className="nav-bar">
         <div className="nav-bar__links">
-          <a href="#map">Routes</a>
+          <a href="#history">History</a>
           <a href="#list">Top Attractions</a>
+          <a href="#filters">Filters</a>
+          <a href="#hotels">Hotels</a>
           <a href="#restaurants">Restaurants</a>
-          <a href="#stories">Reviews</a>
         </div>
         <button className="nav-signin" onClick={onSignIn}>
           Sign in
