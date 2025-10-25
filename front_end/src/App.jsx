@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
@@ -55,10 +55,10 @@ const DEFAULT_FILTERS = {
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [selectedPlace, setSelectedPlace] = useState(PLACES[0] ?? null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [submittedReviews, setSubmittedReviews] = useState([]);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
 
   const handleSearch = (query) => {
     setSearchQuery(query);
@@ -90,19 +90,37 @@ function App() {
     });
   }, [filters, searchQuery]);
 
-  // 🔹 Show LoginScreen first
-  if (!isLoggedIn) {
-    return <LoginScreen onLoginSuccess={() => setIsLoggedIn(true)} />;
-  }
+  useEffect(() => {
+    if (!filteredPlaces.length) {
+      setSelectedPlace(null);
+      return;
+    }
+
+    const stillVisible = filteredPlaces.some((place) => place.id === selectedPlace?.id);
+    if (!stillVisible) {
+      setSelectedPlace(filteredPlaces[0]);
+    }
+  }, [filteredPlaces, selectedPlace]);
 
   return (
     <div className="app-shell">
-      <NavBar />
+      <NavBar onSignIn={() => setIsLoginOpen(true)} />
       <header className="hero text-center">
-        <h1 className="text-3xl font-bold mb-2">Find Accessible Locations</h1>
-        <p className="text-gray-600">
-          Discover places with real accessibility reviews 🌍
-        </p>
+        <div>
+          <p className="eyebrow">Plan inclusive journeys</p>
+          <h1 className="text-3xl font-bold mb-2">Find Accessible Locations</h1>
+          <p className="text-gray-600">
+            Discover places with real accessibility reviews 🌍
+          </p>
+          <div className="hero__actions hero__actions--center">
+            <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+              Share a review
+            </button>
+            <button className="btn btn-ghost" onClick={() => setIsLoginOpen(true)}>
+              Log in
+            </button>
+          </div>
+        </div>
       </header>
 
       <main className="layout grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
@@ -182,6 +200,8 @@ function App() {
         onSubmit={handleSubmitReview}
         placeName={selectedPlace?.name}
       />
+
+      {isLoginOpen && <LoginScreen onClose={() => setIsLoginOpen(false)} />}
     </div>
   );
 }

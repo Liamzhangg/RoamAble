@@ -1,4 +1,4 @@
-function NavBar() {
+function NavBar({ onSignIn }) {
   return (
     <nav className="nav-bar">
       <div className="brand">
@@ -12,7 +12,9 @@ function NavBar() {
         <a href="#list">Places</a>
         <a href="#stories">Stories</a>
       </div>
-      <button className="btn btn-secondary">Sign in</button>
+      <button className="btn btn-secondary" onClick={onSignIn}>
+        Sign in
+      </button>
     </nav>
   );
 }
