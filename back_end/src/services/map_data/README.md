@@ -11,7 +11,7 @@ Owns integration with external mapping providers (e.g., Google Maps Platform).
 
 ## Suggested Next Steps
 
-- [ ] Create a lightweight client module (e.g., `mapClient.js`) that exposes `geocode`, `fetchBaseGraph`, and `lookupPlace`.
+- [ ] Create a lightweight client module (e.g., `map_client.js`) that exposes `geocode`, `fetchBaseGraph`, and `lookupPlace`.
 - [ ] Add configuration support for API keys via environment variables.
 - [ ] Stub unit tests that mock Google Maps responses.
 
