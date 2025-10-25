@@ -123,7 +123,7 @@ function buildGraph(segments, options = {}) {
     const lengthMeters = computeSegmentLengthMeters(coords);
     const penalty = computePenalty(attributes);
     const weight = lengthMeters * (1 + penalty);
-    const segmentMeta = {
+    const baseSegmentMeta = {
       id: segment.segment_id || null,
       score,
       accessible,
@@ -131,13 +131,23 @@ function buildGraph(segments, options = {}) {
       issues: attributes.issues || [],
       weight,
       length: lengthMeters,
-      path: pathLatLon,
+      tags: attributes.tags || {},
     };
 
     const start = pathLatLon[0];
     const end = pathLatLon[pathLatLon.length - 1];
-    addEdge(start, end, segmentMeta, { weight, distance: lengthMeters });
-    addEdge(end, start, segmentMeta, { weight, distance: lengthMeters });
+    addEdge(
+      start,
+      end,
+      { ...baseSegmentMeta, path: pathLatLon.slice(), direction: 'forward' },
+      { weight, distance: lengthMeters },
+    );
+    addEdge(
+      end,
+      start,
+      { ...baseSegmentMeta, path: pathLatLon.slice().reverse(), direction: 'reverse' },
+      { weight, distance: lengthMeters },
+    );
   });
 
   return { nodes, nodePositions };
@@ -264,9 +274,18 @@ function dijkstra(graph, startKey, endKey) {
     segments.reduce((sum, seg) => sum + (seg.score ?? 0.5), 0) / (segments.length || 1);
   const accessibleSegments = segments.filter((seg) => seg.accessible).length;
 
+  const polyline = [];
+  segments.forEach((seg, segIndex) => {
+    seg.path.forEach((coord, coordIndex) => {
+      if (segIndex > 0 && coordIndex === 0) return;
+      polyline.push(coord);
+    });
+  });
+
   return {
     path: pathCoords,
     segments,
+    polyline,
     metrics: {
       total_distance_m: totalDistance,
       total_cost: distances.get(endKey),
@@ -274,10 +293,6 @@ function dijkstra(graph, startKey, endKey) {
       accessible_segment_ratio: segments.length
         ? accessibleSegments / segments.length
         : 0,
-      start_distance_to_network_m: haversineDistance(
-        graph.nodePositions.get(startKey),
-        pathCoords[0],
-      ),
     },
   };
 }
@@ -303,18 +318,31 @@ function findAccessibleWalkingRoute(startLatLon, endLatLon, options = {}) {
     return {
       success: false,
       reason: 'no_path_found',
-      start,
-      end,
+      start: { ...start, requested: startLatLon },
+      end: { ...end, requested: endLatLon },
     };
   }
 
+  const startOffset = start.coord ? haversineDistance(startLatLon, start.coord) : null;
+  const endOffset = end.coord ? haversineDistance(endLatLon, end.coord) : null;
+  const fullPolyline = [
+    startLatLon,
+    ...(result.polyline.length ? result.polyline : []),
+    endLatLon,
+  ];
+
   return {
     success: true,
-    start,
-    end,
+    start: { ...start, requested: startLatLon, offset_m: startOffset },
+    end: { ...end, requested: endLatLon, offset_m: endOffset },
     path: result.path,
     segments: result.segments,
-    metrics: result.metrics,
+    polyline: fullPolyline,
+    metrics: {
+      ...result.metrics,
+      start_distance_to_network_m: startOffset ?? 0,
+      end_distance_to_network_m: endOffset ?? 0,
+    },
   };
 }
 
