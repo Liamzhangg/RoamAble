@@ -1,3 +1,4 @@
+import logo from "./assets/logo.png";
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
@@ -149,6 +150,12 @@ function App() {
 
       {/* Overlay widgets */}
       <div className="app-shell">
+        {/* Search card (top-left) */}
+        <img className="brand-logo" src={logo} alt="Accessible Travel Finder" />
+        <div className="overlay-card overlay-search">
+          <SearchBox initialQuery={searchQuery} onSearch={handleSearch} />
+        </div>
+
         {/* Filters card (top-right) */}
         <div className="overlay-card overlay-filters">
           <FiltersBar filters={filters} onChange={setFilters} />
@@ -157,7 +164,7 @@ function App() {
         {/* Places list (left column) */}
         <div className={`overlay-panel ${isPanelOpen ? "" : "is-collapsed"}`}>
           <div className="overlay-header">
-            <span className="overlay-title">Explore Accessible Places</span>
+            <span className="overlay-title">Top Attractions</span>
             <button className="btn btn-ghost" onClick={() => setIsPanelOpen((v) => !v)}>
               {isPanelOpen ? "Hide" : "Show"}
             </button>
