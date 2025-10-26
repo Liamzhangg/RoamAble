@@ -16,7 +16,7 @@ const FILTER_OPTIONS = [
   },
 ];
 
-function FiltersBar({ filters = {}, onChange, bare = false, showLabel = true, className = "" }) {
+function FiltersBar({ filters = {}, onChange }) {
   const handleToggle = (key) => {
     onChange?.({
       ...filters,
@@ -24,14 +24,9 @@ function FiltersBar({ filters = {}, onChange, bare = false, showLabel = true, cl
     });
   };
 
-  const Wrapper = bare ? "div" : "section";
-  const wrapperClass = bare
-    ? `filters-bar ${className}`.trim()
-    : `panel filters-bar ${className}`.trim();
-
   return (
-    <Wrapper className={wrapperClass}>
-      {!bare && showLabel && <div className="panel-label">Access filters</div>}
+    <section className="panel filters-bar">
+      <div className="panel-label">Access filters</div>
       <div className="filters-bar__chips">
         {FILTER_OPTIONS.map((filter) => (
           <button
@@ -45,7 +40,7 @@ function FiltersBar({ filters = {}, onChange, bare = false, showLabel = true, cl
           </button>
         ))}
       </div>
-    </Wrapper>
+    </section>
   );
 }
 

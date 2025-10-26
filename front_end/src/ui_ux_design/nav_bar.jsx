@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-function NavBar({ onSignIn, onSignOut, onSearch, onOpenFilters, searchQuery = "", user }) {
+function NavBar({ onSignIn, onSignOut, onSearch, searchQuery = "", user }) {
   const [query, setQuery] = useState(searchQuery);
 
   useEffect(() => {
@@ -31,15 +31,7 @@ function NavBar({ onSignIn, onSignOut, onSearch, onOpenFilters, searchQuery = ""
         <div className="nav-bar__links">
           <a href="#history">History</a>
           <a href="#list">Top Attractions</a>
-          <a
-            href="#filters"
-            onClick={(e) => {
-              e.preventDefault();
-              onOpenFilters?.();
-            }}
-          >
-            Filters
-          </a>
+          <a href="#filters">Filters</a>
           <a href="#hotels">Hotels</a>
           <a href="#restaurants">Restaurants</a>
         </div>

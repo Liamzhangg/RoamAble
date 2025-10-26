@@ -2,7 +2,7 @@ import logo from "./assets/logo.png";
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, Marker, Popup, ZoomControl } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import { signOut } from "firebase/auth";
 
@@ -63,7 +63,6 @@ function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [user, setUser] = useState(null);
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const handleSearch = (query) => setSearchQuery(query);
 
@@ -115,7 +114,6 @@ function App() {
         onSignIn={() => setIsLoginOpen(true)}
         onSignOut={handleSignOut}
         onSearch={handleSearch}
-        onOpenFilters={() => setIsFiltersOpen(true)}
         searchQuery={searchQuery}
         user={user}
       />
@@ -125,17 +123,15 @@ function App() {
         <MapContainer
           center={[43.6532, -79.3832]}
           zoom={13}
-          zoomControl={false}
-          scrollWheelZoom={!isModalOpen && !isLoginOpen && !isFiltersOpen}
-          dragging={!isModalOpen && !isLoginOpen && !isFiltersOpen}
-          doubleClickZoom={!isModalOpen && !isLoginOpen && !isFiltersOpen}
-          keyboard={!isModalOpen && !isLoginOpen && !isFiltersOpen}
+          scrollWheelZoom={!isModalOpen}
+          dragging={!isModalOpen}
+          doubleClickZoom={!isModalOpen}
+          keyboard={!isModalOpen}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <ZoomControl position="bottomright" />
           {filteredPlaces.map((place) => (
             <Marker
               key={place.id}
@@ -155,7 +151,11 @@ function App() {
       {/* Overlay widgets */}
       <img className="corner-logo" src={logo} alt="Accessible Travel Finder" />
       <div className="app-shell">
-        {/* Filters popup handled via modal below */}
+        {/* Filters card (top-right) */}
+
+        <div className="overlay-card overlay-filters">
+          <FiltersBar filters={filters} onChange={setFilters} />
+        </div>
 
         {/* Places list (left column) */}
         <div className={`overlay-panel ${isPanelOpen ? "" : "is-collapsed"}`}>
@@ -182,19 +182,6 @@ function App() {
           onSubmit={handleSubmitReview}
           placeName={selectedPlace?.name}
         />
-        {isFiltersOpen && (
-          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Access filters">
-            <div className="modal">
-              <header className="modal__header">
-                <span className="overlay-title">Access Filters</span>
-                <button className="btn btn-ghost" onClick={() => setIsFiltersOpen(false)}>Close</button>
-              </header>
-              <div className="modal__body">
-                <FiltersBar filters={filters} onChange={setFilters} bare showLabel={false} />
-              </div>
-            </div>
-          </div>
-        )}
         {isLoginOpen && (
           <LoginScreen
             onClose={() => setIsLoginOpen(false)}
