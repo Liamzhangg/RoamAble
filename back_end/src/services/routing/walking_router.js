@@ -35,8 +35,17 @@ function toLatLon(coord) {
 }
 
 function coordKey([lat, lon]) {
-  // Snap coordinates to ~11 m grid to connect nearby sidewalk vertices while keeping intersections distinct.
-  return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  return `${lat.toFixed(6)},${lon.toFixed(6)}`;
+}
+
+function computeSegmentLengthMeters(coords) {
+  let length = 0;
+  for (let i = 1; i < coords.length; i += 1) {
+    const prev = toLatLon(coords[i - 1]);
+    const cur = toLatLon(coords[i]);
+    length += haversineDistance(prev, cur);
+  }
+  return length;
 }
 
 function computePenalty(attributes) {
@@ -111,45 +120,34 @@ function buildGraph(segments, options = {}) {
     }
 
     const pathLatLon = coords.map(toLatLon);
+    const lengthMeters = computeSegmentLengthMeters(coords);
     const penalty = computePenalty(attributes);
-    const weightFactor = 1 + penalty;
+    const weight = lengthMeters * (1 + penalty);
     const baseSegmentMeta = {
       id: segment.segment_id || null,
       score,
       accessible,
       confidence: attributes.confidence || 'low',
       issues: attributes.issues || [],
+      weight,
+      length: lengthMeters,
       tags: attributes.tags || {},
-      originalPath: pathLatLon.slice(),
     };
 
-    for (let i = 0; i < pathLatLon.length - 1; i += 1) {
-      const start = pathLatLon[i];
-      const end = pathLatLon[i + 1];
-      const segmentLength = haversineDistance(start, end);
-      if (segmentLength === 0) continue;
-      const weight = segmentLength * weightFactor;
-      const forwardMeta = {
-        ...baseSegmentMeta,
-        path: [start, end],
-        direction: 'forward',
-        length: segmentLength,
-        weight,
-        sequenceIndex: i,
-        sequenceTotal: pathLatLon.length,
-      };
-      const reverseMeta = {
-        ...baseSegmentMeta,
-        path: [end, start],
-        direction: 'reverse',
-        length: segmentLength,
-        weight,
-        sequenceIndex: i,
-        sequenceTotal: pathLatLon.length,
-      };
-      addEdge(start, end, forwardMeta, { weight, distance: segmentLength });
-      addEdge(end, start, reverseMeta, { weight, distance: segmentLength });
-    }
+    const start = pathLatLon[0];
+    const end = pathLatLon[pathLatLon.length - 1];
+    addEdge(
+      start,
+      end,
+      { ...baseSegmentMeta, path: pathLatLon.slice(), direction: 'forward' },
+      { weight, distance: lengthMeters },
+    );
+    addEdge(
+      end,
+      start,
+      { ...baseSegmentMeta, path: pathLatLon.slice().reverse(), direction: 'reverse' },
+      { weight, distance: lengthMeters },
+    );
   });
 
   return { nodes, nodePositions };

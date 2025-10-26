@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "./lib/firebase.js";
-import { saveUserProfile } from "./lib/user_store.js";
+import { supabase } from "./lib/supabaseClient.js";
 
 function LoginScreen({ onClose, onSuccess }) {
   const [email, setEmail] = useState("");
@@ -18,19 +16,22 @@ function LoginScreen({ onClose, onSuccess }) {
 
     try {
       const trimmedEmail = email.trim();
-      let credential;
-
-      if (formMode === "signup") {
-        credential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
-        await saveUserProfile(credential.user, { isNew: true });
-      } else {
-        credential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
-        await saveUserProfile(credential.user);
+      if (!trimmedEmail || !password) {
+        throw new Error("Please enter both email and password.");
       }
-
-      onSuccess?.(credential.user);
+      let user;
+      if (formMode === "signup") {
+        const { data, error } = await supabase.auth.signUp({ email: trimmedEmail, password });
+        if (error) throw error;
+        user = data.user;
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
+        if (error) throw error;
+        user = data.user;
+      }
+      onSuccess?.(user);
     } catch (err) {
-      setError(mapFirebaseError(err));
+      setError(err?.message || "Unable to sign in right now. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -147,13 +148,6 @@ function LoginScreen({ onClose, onSuccess }) {
   );
 }
 
-function mapFirebaseError(error) {
-  const code = error?.code ?? "";
-  if (code.includes("auth/invalid-credential")) return "That email or password didn’t match.";
-  if (code.includes("auth/user-not-found")) return "No account exists for that email.";
-  if (code.includes("auth/wrong-password")) return "Incorrect password. Please try again.";
-  if (code.includes("auth/too-many-requests")) return "Too many unsuccessful attempts. Please wait and try again.";
-  return "Unable to sign in right now. Please try again.";
-}
+// No Firebase error mapping needed in local mode.
 
 export default LoginScreen;
