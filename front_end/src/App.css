@@ -62,9 +62,16 @@
 }
 
 .brand-logo {
-  height: 64px;
-  width: auto;
-  object-fit: contain;
+   position: fixed; 
+   transform-origin: bottom right;
+   transform: scale(1.5);
+   right: 5px; 
+   bottom: 16px; 
+   width: clamp(64px, 8vw, 60px);
+   height: auto; 
+   z-index: 2; 
+   pointer-events: none; 
+   filter: drop-shadow(0 6px 18px rgba(0,0,0,0.25));
 }
 
 .brand-title {
@@ -181,8 +188,8 @@
 /* Floating action button */
 .fab {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  right: 10px;
+  bottom: 150px;
   pointer-events: auto;
   background: var(--primary);
   color: #fff;
@@ -319,87 +326,6 @@
   width: 100%;
   min-height: 360px;
   height: 420px;
-}
-
-.route-panel {
-  margin-top: 12px;
-  background: var(--surface);
-  border-radius: 18px;
-  border: 1px solid var(--border);
-  padding: 16px;
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.route-panel__label {
-  font-weight: 600;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.route-panel__input {
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  padding: 10px 14px;
-  font-size: 1rem;
-}
-
-.route-panel__results {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.route-panel__results li button {
-  width: 100%;
-  text-align: left;
-  padding: 10px 14px;
-  border: none;
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.route-panel__results li button:hover {
-  background: var(--surface-muted);
-}
-
-.route-panel__results .label {
-  font-weight: 500;
-}
-
-.route-panel__results .meta {
-  font-size: 0.75rem;
-  color: var(--subtle-text);
-}
-
-.route-panel__hint {
-  font-size: 0.85rem;
-  color: var(--subtle-text);
-}
-
-.route-panel__error {
-  font-size: 0.9rem;
-  color: #dc2626;
-  font-weight: 600;
-}
-
-.route-panel__summary {
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .selected-place {

@@ -3,7 +3,6 @@ import logo from "../assets/logo.png";
 function NavBar({ onSignIn }) {
   return (
     <header className="header-bar">
-      <img src={logo} alt="Accessible Travel Finder" className="brand-logo" />
       <p className="brand-title">Accessible Travel Finder</p>
       <nav className="nav-bar">
         <div className="nav-bar__links">
