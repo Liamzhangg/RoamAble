@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "./lib/firebase.js";
+import { saveUserProfile } from "./lib/user_store.js";
 
 function LoginScreen({ onClose, onSuccess }) {
   const [email, setEmail] = useState("");
@@ -8,6 +9,7 @@ function LoginScreen({ onClose, onSuccess }) {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [formMode, setFormMode] = useState("signin"); // 'signin' | 'signup'
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -15,7 +17,17 @@ function LoginScreen({ onClose, onSuccess }) {
     setIsSubmitting(true);
 
     try {
-      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const trimmedEmail = email.trim();
+      let credential;
+
+      if (formMode === "signup") {
+        credential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+        await saveUserProfile(credential.user, { isNew: true });
+      } else {
+        credential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
+        await saveUserProfile(credential.user);
+      }
+
       onSuccess?.(credential.user);
     } catch (err) {
       setError(mapFirebaseError(err));
@@ -36,8 +48,12 @@ function LoginScreen({ onClose, onSuccess }) {
 
         {showForm ? (
           <form className="login-form" onSubmit={handleSubmit}>
-            <h2>Continue with email</h2>
-            <p>Enter the email and password tied to your RoamAble account.</p>
+            <h2>{formMode === "signup" ? "Create your account" : "Continue with email"}</h2>
+            <p>
+              {formMode === "signup"
+                ? "Create a secure profile to sync favourites everywhere."
+                : "Enter the email and password tied to your RoamAble account."}
+            </p>
             <label className="form-label" htmlFor="login-email">
               Email
               <input
@@ -69,7 +85,13 @@ function LoginScreen({ onClose, onSuccess }) {
             )}
             <div className="login-card__actions">
               <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Signing in..." : "Sign in"}
+                {isSubmitting
+                  ? formMode === "signup"
+                    ? "Creating..."
+                    : "Signing in..."
+                  : formMode === "signup"
+                  ? "Create account"
+                  : "Sign in"}
               </button>
               <button
                 className="btn btn-ghost"
@@ -96,8 +118,23 @@ function LoginScreen({ onClose, onSuccess }) {
               Keep bookmarks of past routes taken, save favourite locations, and share top attractions with friends.
             </p>
             <div className="login-card__actions">
-              <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setFormMode("signin");
+                  setShowForm(true);
+                }}
+              >
                 Continue with email
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  setFormMode("signup");
+                  setShowForm(true);
+                }}
+              >
+                Create an account
               </button>
               <button className="btn btn-ghost" onClick={onClose}>
                 Maybe later

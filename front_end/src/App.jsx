@@ -2,15 +2,15 @@ import logo from "./assets/logo.png";
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl } from "react-leaflet";
 import L from "leaflet";
 import { signOut } from "firebase/auth";
 
-import FiltersBar from "./ui_ux_design/filters_bar.jsx";
 import AddReviewModal from "./ui_ux_design/add_review_modal.jsx";
 import NavBar from "./ui_ux_design/nav_bar.jsx";
 import PlaceList from "./ui_ux_design/place_list.jsx";
 import LoginScreen from "./ui_ux_design/login_screen.jsx";
+import FiltersModal from "./ui_ux_design/filters_modal.jsx";
 import { auth } from "./ui_ux_design/lib/firebase.js";
 
 // Fix Leaflet marker icons for Vite
@@ -62,7 +62,10 @@ function App() {
   const [submittedReviews, setSubmittedReviews] = useState([]);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const isInteractionLocked = isModalOpen || isFiltersOpen || isLoginOpen;
+  const inertProps = isInteractionLocked ? { "aria-hidden": "true", inert: "" } : {};
 
   const handleSearch = (query) => setSearchQuery(query);
 
@@ -114,24 +117,28 @@ function App() {
         onSignIn={() => setIsLoginOpen(true)}
         onSignOut={handleSignOut}
         onSearch={handleSearch}
+        onOpenFilters={() => setIsFiltersOpen((previous) => !previous)}
         searchQuery={searchQuery}
         user={user}
+        isDisabled={isInteractionLocked}
       />
+      <div className={`interaction-scrim ${isInteractionLocked ? "is-visible" : ""}`} aria-hidden="true" />
 
       {/* Full-screen map background layer */}
       <div className="map-bg" aria-hidden={false}>
         <MapContainer
           center={[43.6532, -79.3832]}
           zoom={13}
-          scrollWheelZoom={!isModalOpen}
-          dragging={!isModalOpen}
-          doubleClickZoom={!isModalOpen}
-          keyboard={!isModalOpen}
+          scrollWheelZoom={!isInteractionLocked}
+          dragging={!isInteractionLocked}
+          doubleClickZoom={!isInteractionLocked}
+          keyboard={!isInteractionLocked}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          <ZoomControl position="bottomright" />
           {filteredPlaces.map((place) => (
             <Marker
               key={place.id}
@@ -151,37 +158,52 @@ function App() {
       {/* Overlay widgets */}
       <img className="corner-logo" src={logo} alt="Accessible Travel Finder" />
       <div className="app-shell">
-        {/* Filters card (top-right) */}
+        <div className={`app-shell__content ${isInteractionLocked ? "is-blocked" : ""}`} {...inertProps}>
+          {/* Places list (left column) */}
+          <div className={`overlay-panel ${isPanelOpen ? "" : "is-collapsed"}`}>
+            <div className="overlay-header">
+              <span className="overlay-title">Explore Accessible Places</span>
+              <button className="btn btn-ghost" onClick={() => setIsPanelOpen((v) => !v)}>
+                {isPanelOpen ? "Hide" : "Show"}
+              </button>
+            </div>
+            <div className="overlay-panel__body">
+              <PlaceList
+                places={filteredPlaces}
+                selectedPlaceId={selectedPlace?.id}
+                onSelect={setSelectedPlace}
+              />
+            </div>
+          </div>
 
-        <div className="overlay-card overlay-filters">
-          <FiltersBar filters={filters} onChange={setFilters} />
+          <button className="fab" onClick={() => setIsModalOpen(true)}>+ Review</button>
         </div>
 
-        {/* Places list (left column) */}
-        <div className={`overlay-panel ${isPanelOpen ? "" : "is-collapsed"}`}>
-          <div className="overlay-header">
-            <span className="overlay-title">Explore Accessible Places</span>
-            <button className="btn btn-ghost" onClick={() => setIsPanelOpen((v) => !v)}>
-              {isPanelOpen ? "Hide" : "Show"}
-            </button>
-          </div>
-          <div className="overlay-panel__body">
-            <PlaceList
-              places={filteredPlaces}
-              selectedPlaceId={selectedPlace?.id}
-              onSelect={setSelectedPlace}
-            />
-          </div>
-        </div>
-
-        <button className="fab" onClick={() => setIsModalOpen(true)}>+ Review</button>
-
+        <FiltersModal
+          isOpen={isFiltersOpen}
+          onClose={() => setIsFiltersOpen(false)}
+          filters={filters}
+          onChange={setFilters}
+        />
         <AddReviewModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleSubmitReview}
           placeName={selectedPlace?.name}
         />
+        {isFiltersOpen && (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Access filters">
+            <div className="modal">
+              <header className="modal__header">
+                <span className="overlay-title">Access Filters</span>
+                <button className="btn btn-ghost" onClick={() => setIsFiltersOpen(false)}>Close</button>
+              </header>
+              <div className="modal__body">
+                <FiltersBar filters={filters} onChange={setFilters} bare showLabel={false} />
+              </div>
+            </div>
+          </div>
+        )}
         {isLoginOpen && (
           <LoginScreen
             onClose={() => setIsLoginOpen(false)}

@@ -8,6 +8,8 @@
   --primary-dark: #1d4ed8;
   --accent: #14b8a6;
   --shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+  /* Bottom-right overlay stack height (logo/FAB spacing for zoom control) */
+  --br-overlay-offset: 120px;
 }
 
 #root {
@@ -28,6 +30,33 @@
   height: 100dvh;
 }
 
+.leaflet-control-zoom {
+  position: absolute !important;
+  bottom: 24px;
+  right: 16px;
+  top: auto;
+  left: auto;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  z-index: 5;
+}
+
+.leaflet-control-zoom a {
+  background: var(--surface);
+  color: var(--text);
+  border: none;
+  width: 42px;
+  height: 42px;
+  line-height: 42px;
+  font-size: 1.25rem;
+}
+
+.leaflet-control-zoom a:hover {
+  background: var(--surface-muted);
+}
+
 /* Overlay layer for widgets (non-blocking by default) */
 .app-shell {
   position: fixed;
@@ -37,38 +66,73 @@
   display: block;
   color: var(--text);
   pointer-events: none; /* let map receive interactions except on widgets */
+  z-index: 6; /* keep modals above the interaction scrim */
 }
 
-.corner-logo { position: fixed; 
-  right: 5px; 
-  bottom: 16px; 
-  width: 100px; 
-  height: auto; 
-  z-index: 2; 
-  pointer-events: none; 
-  filter: drop-shadow(0 6px 18px rgba(0,0,0,0.25)); 
+.app-shell__content {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
+
+.app-shell__content.is-blocked {
+  filter: saturate(0.2);
+}
+
+.app-shell__content.is-blocked .overlay-panel,
+.app-shell__content.is-blocked .fab {
+  pointer-events: none;
+}
+
+.interaction-scrim {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.interaction-scrim.is-visible {
+  pointer-events: auto;
+}
+
+
+.corner-logo { position: fixed;
+ right: 140px;
+ bottom: 16px;
+ width: 100px;
+ height: auto;
+ z-index: 2;
+ pointer-events: none;
+ filter: drop-shadow(0 6px 18px rgba(0,0,0,0.25));
+}
+
 
 /* Fixed top navbar, centered */
 .header-bar {
   position: fixed;
   top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  transform: none;
   z-index: 2;
   pointer-events: auto;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 20px;
-  padding: 12px 20px;
+  padding: 12px 28px 12px 20px;
   background: var(--surface);
-  border-radius: 180px;
+  border-radius: 0 28px 28px 0;
   border: 1px solid var(--border);
+  border-left: none;
   box-shadow: var(--shadow);
   flex-wrap: wrap;
-  width: calc(100dvw - 32px);
-  max-width: 1200px;
+  width: min(1300px, 100dvw);
+}
+
+.header-bar.is-blocked {
+  pointer-events: none;
+  opacity: 0.5;
 }
 
 .nav-bar {
@@ -77,6 +141,7 @@
   gap: 24px;
   width: 100%;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .nav-bar__links {
@@ -99,18 +164,21 @@
   border-color: var(--accent);
 }
 
+.nav-search {
+  position: relative;
+  flex: 1 1 520px;
+  max-width: 620px;
+}
+
 .nav-search__form {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1 1 420px;
-  max-width: 560px;
+  gap: 10px;
   width: 100%;
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 6px 10px;
-  box-shadow: inset 0 1px 4px rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 8px 12px;
 }
 
 .nav-search__input {
@@ -118,7 +186,7 @@
   border: none;
   background: transparent;
   font-size: 1rem;
-  padding: 8px 10px;
+  padding: 6px 4px;
   color: var(--text);
 }
 
@@ -127,7 +195,61 @@
 }
 
 .nav-search__submit {
-  padding: 8px 22px;
+  padding: 8px 20px;
+}
+
+.nav-search__toggle {
+  border: none;
+  background: transparent;
+  color: var(--subtle-text);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.nav-search__dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  width: min(520px, calc(100dvw - 32px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+  z-index: 5;
+}
+
+.nav-search__hint {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--subtle-text);
+}
+
+.nav-search__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.nav-search__suggestion {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: transparent;
+  font-size: 0.9rem;
+  color: var(--subtle-text);
+  cursor: pointer;
+}
+
+.nav-search__suggestion:hover {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .nav-signin {
@@ -221,8 +343,8 @@
 /* Floating action button */
 .fab {
   position: fixed;
-  right: 20px;
-  bottom: 150px;
+  right: 200px;
+  bottom: 20px;
   pointer-events: auto;
   background: var(--primary);
   color: #fff;
@@ -644,6 +766,7 @@
   font-weight: 600;
 }
 
+/* Modal backdrop covers the entire screen and blocks interactions */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -652,7 +775,55 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  z-index: 10;
+  z-index: 100; /* above header and overlays */
+  pointer-events: auto;
+}
+
+.filters-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 12;
+  pointer-events: auto;
+}
+
+.filters-modal {
+  width: min(420px, calc(100% - 32px));
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 18px 18px 24px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.filters-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.filters-modal__subtitle {
+  margin: 6px 0 0;
+  color: var(--subtle-text);
+  font-size: 0.95rem;
+}
+
+.filters-modal__close {
+  white-space: nowrap;
+}
+
+.filters-modal__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .modal {
