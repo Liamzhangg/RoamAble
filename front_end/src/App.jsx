@@ -65,19 +65,16 @@ function App() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [selectedPlace, setSelectedPlace] = useState(PLACES[0] ?? null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [submittedReviews, setSubmittedReviews] = useState([]);
+  const [, setSubmittedReviews] = useState([]);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isAttractionsOpen, setIsAttractionsOpen] = useState(true);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
-  const requiresAuth = !user;
   const overlayLocked = isModalOpen || isFiltersOpen || isLoginOpen || isPasswordOpen;
-  const isInteractionLocked = overlayLocked || requiresAuth;
+  const isInteractionLocked = overlayLocked;
   const navDisabled = overlayLocked;
   const inertProps = isInteractionLocked ? { "aria-hidden": "true", inert: "" } : {};
-  const showAuthGuard = requiresAuth && !isLoginOpen;
   async function fetchRecent() {
     if (!user) { setRecentSearches([]); return; }
     const { data } = await supabase
@@ -91,15 +88,14 @@ function App() {
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
-    if (user && query) {
-      try {
-        await supabase.from("recent_searches").insert({ user_id: user.id || user.uid, query });
-        fetchRecent();
-      } catch {}
+    if (!user || !query) return;
+    try {
+      await supabase.from("recent_searches").insert({ user_id: user.id || user.uid, query });
+      fetchRecent();
+    } catch (error) {
+      console.error("Unable to store recent search", error);
     }
   };
-
-  // Subscribe to Firebase Auth state; keeps users signed in across refreshes
 
   const handleSubmitReview = (data) => {
     setSubmittedReviews((previous) => [
@@ -215,19 +211,11 @@ function App() {
         onUploadAvatar={handleAvatarUpload}
         onSearch={handleSearch}
         onOpenFilters={() => setIsFiltersOpen((previous) => !previous)}
-        onToggleAttractions={() => setIsAttractionsOpen((v) => !v)}
         searchQuery={searchQuery}
         user={user}
         recentSearches={recentSearches}
         isDisabled={navDisabled}
       />
-
-      {showAuthGuard && (
-        <div className="auth-guard">
-          <h3>Sign in to explore</h3>
-          <p>Tap the account icon in the nav bar to launch the sign-in screen.</p>
-        </div>
-      )}
 
       <div className={`interaction-scrim ${isInteractionLocked ? "is-visible" : ""}`} aria-hidden="true" />
 
@@ -274,20 +262,18 @@ function App() {
       <div className="app-shell">
         <div className={`app-shell__content ${isInteractionLocked ? "is-blocked" : ""}`} {...inertProps}>
           {/* Places list (right side panel) */}
-          {isAttractionsOpen && (
-            <div className="overlay-panel">
-              <div className="overlay-header">
-                <span className="overlay-title">Top Results</span>
-              </div>
-              <div className="overlay-panel__body">
-                <PlaceList
-                  places={filteredPlaces}
-                  selectedPlaceId={selectedPlace?.id}
-                  onSelect={setSelectedPlace}
-                />
-              </div>
+          <div className="overlay-panel">
+            <div className="overlay-header">
+              <span className="overlay-title">Top Results</span>
             </div>
-          )}
+            <div className="overlay-panel__body">
+              <PlaceList
+                places={filteredPlaces}
+                selectedPlaceId={selectedPlace?.id}
+                onSelect={setSelectedPlace}
+              />
+            </div>
+          </div>
 
           <button className="fab" onClick={() => setIsModalOpen(true)}>+ Review</button>
         </div>

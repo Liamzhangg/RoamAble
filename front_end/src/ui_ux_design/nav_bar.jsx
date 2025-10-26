@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import logo from "../assets/logo.png";
 
 const FALLBACK_SUGGESTIONS = [
   "Harbourfront Centre",
@@ -14,7 +13,6 @@ function NavBar({
   onUploadAvatar,
   onSearch,
   onOpenFilters,
-  onToggleAttractions,
   onSetStartLocation,
   searchQuery = "",
   user,
@@ -94,9 +92,6 @@ function NavBar({
 
   return (
     <header className={`header-bar ${isDisabled ? "is-blocked" : ""}`} {...inertProps}>
-      <div className="logo-pill" aria-label="RoamAble home">
-        <img src={logo} alt="RoamAble" />
-      </div>
       <nav className="nav-bar">
         <div className="nav-search" ref={searchRef}>
           <form className="nav-search__form" onSubmit={handleSubmit}>

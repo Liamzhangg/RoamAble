@@ -148,6 +148,4 @@ function LoginScreen({ onClose, onSuccess }) {
   );
 }
 
-// No Firebase error mapping needed in local mode.
-
 export default LoginScreen;
