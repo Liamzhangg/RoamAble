@@ -1,12 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-const SEARCH_SUGGESTIONS = [
-  { label: "Step-free museums", value: "step-free museums" },
-  { label: "Quiet restaurants", value: "quiet restaurants" },
-  { label: "Accessible hotels", value: "accessible hotels" },
-  { label: "Braille menus", value: "braille menu" },
-];
-
 function NavBar({
   onSignIn,
   onSignOut,
@@ -15,6 +8,7 @@ function NavBar({
   onToggleAttractions,
   searchQuery = "",
   user,
+  recentSearches = [],
   isDisabled = false,
 }) {
   const [query, setQuery] = useState(searchQuery);
@@ -79,16 +73,16 @@ function NavBar({
           </form>
           {isDropdownOpen && (
             <div id="nav-search-dropdown" className="nav-search__dropdown">
-              <p className="nav-search__hint">Try one of these popular filters:</p>
+              <p className="nav-search__hint">Recent searches</p>
               <div className="nav-search__suggestions">
-                {SEARCH_SUGGESTIONS.map((item) => (
+                {(recentSearches?.length ? recentSearches : ["Harbourfront", "Museums", "Accessible hotels"]).map((value) => (
                   <button
-                    key={item.value}
+                    key={value}
                     type="button"
                     className="nav-search__suggestion"
-                    onClick={() => handleSuggestionClick(item.value)}
+                    onClick={() => handleSuggestionClick(value)}
                   >
-                    {item.label}
+                    {value}
                   </button>
                 ))}
               </div>
@@ -121,14 +115,7 @@ function NavBar({
         </div>
         <div className="nav-auth">
           {user ? (
-            <>
-              <span className="nav-auth__user" title={user.email ?? "Signed in"}>
-                {user.email ?? "Signed in"}
-              </span>
-              <button className="nav-signin nav-signin--solid" onClick={onSignOut}>
-                Sign out
-              </button>
-            </>
+            <></>
           ) : (
             <button className="nav-signin nav-signin--solid" onClick={onSignIn}>
               Sign in
