@@ -1,19 +1,35 @@
 import { useEffect, useRef, useState } from "react";
+import logo from "../assets/logo.png";
+
+const FALLBACK_SUGGESTIONS = [
+  "Harbourfront Centre",
+  "Accessible hotels",
+  "Step-free museums",
+];
 
 function NavBar({
-  onSignIn,
+  onProfileClick,
   onSignOut,
+  onChangePassword,
+  onUploadAvatar,
   onSearch,
   onOpenFilters,
   onToggleAttractions,
+  onSetStartLocation,
   searchQuery = "",
   user,
   recentSearches = [],
   isDisabled = false,
+  originLabel = "Toronto City Hall",
+  isLocatingStart = false,
 }) {
   const [query, setQuery] = useState(searchQuery);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const searchRef = useRef(null);
+  const menuRef = useRef(null);
+  const iconRef = useRef(null);
+
   const inertProps = isDisabled ? { "aria-hidden": "true", inert: "" } : {};
 
   useEffect(() => {
@@ -33,6 +49,25 @@ function NavBar({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isDropdownOpen]);
 
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleClick = (event) => {
+      const clickedMenu = menuRef.current?.contains(event.target);
+      const clickedIcon = iconRef.current?.contains(event.target);
+      if (!clickedMenu && !clickedIcon) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!user) {
+      setIsMenuOpen(false);
+    }
+  }, [user]);
+
   const handleSubmit = (event) => {
     event.preventDefault();
     onSearch?.(query.trim());
@@ -45,8 +80,23 @@ function NavBar({
     setIsDropdownOpen(false);
   };
 
+  const handleProfileToggle = () => {
+    if (user) {
+      setIsMenuOpen((previous) => !previous);
+    } else {
+      setIsMenuOpen(false);
+      onProfileClick?.();
+    }
+  };
+
+  const avatarLabel = user?.email?.charAt(0)?.toUpperCase() ?? "👤";
+  const suggestions = recentSearches?.length ? recentSearches : FALLBACK_SUGGESTIONS;
+
   return (
     <header className={`header-bar ${isDisabled ? "is-blocked" : ""}`} {...inertProps}>
+      <div className="logo-pill" aria-label="RoamAble home">
+        <img src={logo} alt="RoamAble" />
+      </div>
       <nav className="nav-bar">
         <div className="nav-search" ref={searchRef}>
           <form className="nav-search__form" onSubmit={handleSubmit}>
@@ -73,9 +123,9 @@ function NavBar({
           </form>
           {isDropdownOpen && (
             <div id="nav-search-dropdown" className="nav-search__dropdown">
-              <p className="nav-search__hint">Recent searches</p>
+              <p className="nav-search__hint">Quick picks</p>
               <div className="nav-search__suggestions">
-                {(recentSearches?.length ? recentSearches : ["Harbourfront", "Museums", "Accessible hotels"]).map((value) => (
+                {suggestions.map((value) => (
                   <button
                     key={value}
                     type="button"
@@ -90,17 +140,17 @@ function NavBar({
           )}
         </div>
         <div className="nav-bar__links">
-          <a href="#set_star_location">Set Start Location</a>
-          <a href="#history">History</a>
-          {/* <a
-            href="#list"
-            onClick={(e) => {
-              e.preventDefault();
-              onToggleAttractions?.();
+          <a
+            href="#set_start_location"
+            onClick={(event) => {
+              event.preventDefault();
+              onSetStartLocation?.();
             }}
+            aria-live="polite"
           >
-            Top Attractions
-          </a> */}
+            {isLocatingStart ? "Locating..." : "Set Start Location"}
+          </a>
+          <span className="nav-start-label">From: {originLabel}</span>
           <a
             href="#filters"
             onClick={(e) => {
@@ -113,13 +163,51 @@ function NavBar({
           <a href="#hotels">Hotels</a>
           <a href="#restaurants">Restaurants</a>
         </div>
-        <div className="nav-auth">
-          {user ? (
-            <></>
-          ) : (
-            <button className="nav-signin nav-signin--solid" onClick={onSignIn}>
-              Sign in
-            </button>
+        <div className="nav-actions">
+          <button
+            type="button"
+            className={`nav-icon ${user ? "is-authenticated" : ""}`}
+            onClick={handleProfileToggle}
+            aria-label={user ? "Account menu" : "Open sign in"}
+            ref={iconRef}
+          >
+            {avatarLabel}
+          </button>
+          {user && isMenuOpen && (
+            <div className="nav-profile-menu" ref={menuRef}>
+              <span className="nav-profile-menu__email">{user.email}</span>
+              {onChangePassword && (
+                <button
+                  className="nav-profile-menu__action nav-profile-menu__action--ghost"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onChangePassword();
+                  }}
+                >
+                  Change password
+                </button>
+              )}
+              {onUploadAvatar && (
+                <button
+                  className="nav-profile-menu__action nav-profile-menu__action--ghost"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onUploadAvatar();
+                  }}
+                >
+                  Upload photo
+                </button>
+              )}
+              <button
+                className="nav-profile-menu__action"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onSignOut?.();
+                }}
+              >
+                Sign out
+              </button>
+            </div>
           )}
         </div>
       </nav>

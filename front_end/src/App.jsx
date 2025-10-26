@@ -1,4 +1,3 @@
-import avatarDefault from "./assets/avatar_default.png";
 import logo from "./assets/logo.png";
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
@@ -13,7 +12,6 @@ import {
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
-
 import AddReviewModal from "./ui_ux_design/add_review_modal.jsx";
 import NavBar from "./ui_ux_design/nav_bar.jsx";
 import PlaceList from "./ui_ux_design/place_list.jsx";
@@ -63,14 +61,6 @@ const DEFAULT_FILTERS = {
 };
 
 function App() {
-  // Close profile menu on outside click
-  useEffect(() => {
-    const close = () => {
-      document.querySelectorAll('.profile-menu.is-open').forEach(el => el.classList.remove('is-open'));
-    };
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
-  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [selectedPlace, setSelectedPlace] = useState(PLACES[0] ?? null);
@@ -82,8 +72,12 @@ function App() {
   const [user, setUser] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
-  const isInteractionLocked = isModalOpen || isFiltersOpen || isLoginOpen || isPasswordOpen;
+  const requiresAuth = !user;
+  const overlayLocked = isModalOpen || isFiltersOpen || isLoginOpen || isPasswordOpen;
+  const isInteractionLocked = overlayLocked || requiresAuth;
+  const navDisabled = overlayLocked;
   const inertProps = isInteractionLocked ? { "aria-hidden": "true", inert: "" } : {};
+  const showAuthGuard = requiresAuth && !isLoginOpen;
   async function fetchRecent() {
     if (!user) { setRecentSearches([]); return; }
     const { data } = await supabase
@@ -141,7 +135,33 @@ function App() {
   }, [filteredPlaces, selectedPlace]);
 
   const handleSignOut = async () => {
-    setUser(null);
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      setUser(null);
+    }
+  };
+
+  const handleAvatarUpload = () => {
+    if (!user) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const extension = file.name.split(".").pop();
+      const path = `${user.id || user.uid}/${Date.now()}.${extension}`;
+      const { data: uploaded, error } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+      if (error || !uploaded?.path) return;
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(uploaded.path);
+      await supabase.auth.updateUser({ data: { avatar_url: urlData.publicUrl } });
+      const { data: session } = await supabase.auth.getSession();
+      setUser(session.session?.user ?? null);
+    };
+    input.click();
   };
 
   function FlyToSelected({ coords }) {
@@ -188,66 +208,24 @@ function App() {
   return (
     <>
       {/* Top nav overlay */}
-<NavBar
-  onSignIn={() => setIsLoginOpen(true)}
-  onSignOut={handleSignOut}
-  onSearch={handleSearch}
-  onOpenFilters={() => setIsFiltersOpen((previous) => !previous)}
-  onToggleAttractions={() => setIsAttractionsOpen((v) => !v)}
-  searchQuery={searchQuery}
-  user={user}
-  recentSearches={recentSearches}
-  isDisabled={isInteractionLocked}
-/>
+      <NavBar
+        onProfileClick={() => setIsLoginOpen(true)}
+        onSignOut={handleSignOut}
+        onChangePassword={() => setIsPasswordOpen(true)}
+        onUploadAvatar={handleAvatarUpload}
+        onSearch={handleSearch}
+        onOpenFilters={() => setIsFiltersOpen((previous) => !previous)}
+        onToggleAttractions={() => setIsAttractionsOpen((v) => !v)}
+        searchQuery={searchQuery}
+        user={user}
+        recentSearches={recentSearches}
+        isDisabled={navDisabled}
+      />
 
-      {/* Global avatar next to nav bar (top-right) */}
-      {user && (
-        <div className="global-avatar">
-          <div className="profile">
-            <button
-              className="avatar-btn"
-              aria-label="Profile"
-              onClick={(e) => {
-                e.stopPropagation();
-                const menu = e.currentTarget.nextElementSibling;
-                if (menu) menu.classList.toggle("is-open");
-              }}
-            >
-              <img
-                src={user?.user_metadata?.avatar_url || user?.avatar_url || avatarDefault}
-                alt=""
-                className="avatar-img"
-              />
-            </button>
-            <div className="profile-menu" role="menu" onClick={(e)=>e.stopPropagation()}>
-              <button className="profile-menu__item" onClick={() => setIsPasswordOpen(true)}>Change password</button>
-              <button
-                className="profile-menu__item"
-                onClick={async () => {
-                  const input = document.createElement("input");
-                  input.type = "file";
-                  input.accept = "image/*";
-                  input.onchange = async (ev) => {
-                    const file = ev.target.files?.[0];
-                    if (!file) return;
-                    const ext = file.name.split(".").pop();
-                    const path = `${user.id || user.uid}/${Date.now()}.${ext}`;
-                    const { data: up, error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-                    if (!error && up?.path) {
-                      const { data: publicUrl } = supabase.storage.from("avatars").getPublicUrl(up.path);
-                      await supabase.auth.updateUser({ data: { avatar_url: publicUrl.publicUrl } });
-                      const { data: sess } = await supabase.auth.getSession();
-                      setUser(sess.session?.user ?? null);
-                    }
-                  };
-                  input.click();
-                }}
-              >
-                Upload photo
-              </button>
-              <button className="profile-menu__item" onClick={handleSignOut}>Sign out</button>
-            </div>
-          </div>
+      {showAuthGuard && (
+        <div className="auth-guard">
+          <h3>Sign in to explore</h3>
+          <p>Tap the account icon in the nav bar to launch the sign-in screen.</p>
         </div>
       )}
 
@@ -346,8 +324,3 @@ function App() {
 }
 
 export default App;
-
-
-
-
-
