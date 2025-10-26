@@ -8,6 +8,8 @@
   --primary-dark: #1d4ed8;
   --accent: #14b8a6;
   --shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+  /* Bottom-right overlay stack height (logo/FAB spacing for zoom control) */
+  --br-overlay-offset: 120px;
 }
 
 #root {
@@ -28,6 +30,12 @@
   height: 100dvh;
 }
 
+/* Nudge only the zoom control above bottom-right overlays (logo/FAB) */
+.map-bg .leaflet-control-zoom {
+  margin-right: 16px;
+  margin-bottom: var(--br-overlay-offset); /* sits above bottom-right logo/button */
+}
+
 /* Overlay layer for widgets (non-blocking by default) */
 .app-shell {
   position: fixed;
@@ -37,11 +45,12 @@
   display: block;
   color: var(--text);
   pointer-events: none; /* let map receive interactions except on widgets */
+  z-index: 5; /* ensure modals inside sit above the header */
 }
 
 .corner-logo { position: fixed; 
-  right: 5px; 
-  bottom: 16px; 
+  right: 60px; 
+  bottom: 20px; 
   width: 100px; 
   height: auto; 
   z-index: 2; 
@@ -221,8 +230,8 @@
 /* Floating action button */
 .fab {
   position: fixed;
-  right: 20px;
-  bottom: 150px;
+  right: 200px;
+  bottom: 20px;
   pointer-events: auto;
   background: var(--primary);
   color: #fff;
@@ -644,6 +653,7 @@
   font-weight: 600;
 }
 
+/* Modal backdrop covers the entire screen and blocks interactions */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -652,7 +662,8 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  z-index: 10;
+  z-index: 100; /* above header and overlays */
+  pointer-events: auto;
 }
 
 .modal {
@@ -791,3 +802,4 @@
     flex-direction: column;
   }
 }
+
