@@ -1,15 +1,16 @@
 import logo from "./assets/logo.png";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
 import {
-  CircleMarker,
   MapContainer,
-  Marker,
-  Polyline,
-  Popup,
   TileLayer,
+  Popup,
   ZoomControl,
+  Marker,
+  ScaleControl,
+  Polyline,
+  useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import AddReviewModal from "./ui_ux_design/add_review_modal.jsx";
@@ -17,13 +18,9 @@ import NavBar from "./ui_ux_design/nav_bar.jsx";
 import PlaceList from "./ui_ux_design/place_list.jsx";
 import LoginScreen from "./ui_ux_design/login_screen.jsx";
 import FiltersModal from "./ui_ux_design/filters_modal.jsx";
+import ChangePasswordModal from "./ui_ux_design/change_password_modal.jsx";
 import { supabase } from "./ui_ux_design/lib/supabaseClient.js";
-import {
-  fetchPlaceSearch,
-  mapSearchResultToPlace,
-  requestAccessibleRoute,
-} from "./map_data_logic/api.js";
-
+import { searchPlaces as fetchPlaces, planWalkingRoute } from "./map_data_logic/api.js";
 // Fix Leaflet marker icons for Vite
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -32,108 +29,32 @@ L.Icon.Default.mergeOptions({
   shadowUrl: new URL("leaflet/dist/images/marker-shadow.png", import.meta.url),
 });
 
-const DEFAULT_ORIGIN = { lat: 43.6529, lon: -79.3849, label: "Toronto City Hall" };
-
-function buildSearchBlob(place) {
-  return [
-    place.name,
-    place.location,
-    place.description,
-    place.searchLabel,
-    ...(place.tags || []),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-}
-
-function buildSearchablePlace(rawPlace) {
-  if (!rawPlace) return null;
-  const lat =
-    typeof rawPlace.lat === "number"
-      ? rawPlace.lat
-      : Array.isArray(rawPlace.coordinates)
-      ? Number(rawPlace.coordinates[0])
-      : Number(rawPlace.lat);
-  const lonCandidate =
-    typeof rawPlace.lon === "number"
-      ? rawPlace.lon
-      : typeof rawPlace.lng === "number"
-      ? rawPlace.lng
-      : Array.isArray(rawPlace.coordinates)
-      ? Number(rawPlace.coordinates[1])
-      : Number(rawPlace.lon);
-  const lon = Number.isFinite(lonCandidate) ? lonCandidate : Number(rawPlace.lng);
-  const coordinates =
-    Number.isFinite(lat) && Number.isFinite(lon) ? [lat, lon] : rawPlace.coordinates || null;
-
-  const tags = Array.isArray(rawPlace.tags)
-    ? rawPlace.tags.filter(Boolean).slice(0, 6)
-    : rawPlace.tags
-    ? [rawPlace.tags].filter(Boolean)
-    : [];
-
-  const features = {
-    wheelchair: Boolean(rawPlace.features?.wheelchair),
-    braille: Boolean(rawPlace.features?.braille),
-    assistiveAudio: Boolean(rawPlace.features?.assistiveAudio),
-  };
-
-  const rating =
-    typeof rawPlace.rating === "number" && Number.isFinite(rawPlace.rating)
-      ? rawPlace.rating
-      : 4;
-  const reviews =
-    typeof rawPlace.reviews === "number" && Number.isFinite(rawPlace.reviews)
-      ? rawPlace.reviews
-      : undefined;
-
-  const place = {
-    ...rawPlace,
-    lat,
-    lon,
-    lng: lon,
-    coordinates,
-    tags,
-    features,
-    rating,
-    reviews,
-  };
-
-  place.searchBlob = buildSearchBlob(place);
-  return place;
-}
-
-const STATIC_PLACES = [
-  buildSearchablePlace({
+const PLACES = [
+  {
     id: "p-1",
     name: "Harbourfront Centre",
     location: "Toronto, Canada",
     rating: 4.8,
-    reviews: 214,
     lat: 43.6376,
     lng: -79.3816,
     tags: ["Step-free", "Assistive audio"],
     features: { wheelchair: true, braille: false, assistiveAudio: true },
     description:
       "Waterfront arts hub with elevators, tactile markers, and staff trained in accessible guest support.",
-    searchLabel: "Harbourfront Centre Toronto waterfront",
-  }),
-  buildSearchablePlace({
+  },
+  {
     id: "p-2",
     name: "Royal Ontario Museum",
     location: "Toronto, Canada",
     rating: 4.7,
-    reviews: 387,
     lat: 43.6677,
     lng: -79.3948,
     tags: ["Braille menu", "Quiet hours"],
     features: { wheelchair: true, braille: true, assistiveAudio: false },
     description:
       "Museum with elevators, braille exhibits, and staff assistance for mobility access.",
-    searchLabel: "Royal Ontario Museum ROM",
-  }),
-].filter(Boolean);
+  },
+];
 
 const DEFAULT_FILTERS = {
   wheelchair: false,
@@ -141,171 +62,162 @@ const DEFAULT_FILTERS = {
   assistiveAudio: false,
 };
 
-function formatDistance(distanceKm) {
-  if (!Number.isFinite(distanceKm)) return "Distance unknown";
-  if (distanceKm >= 1) {
-    return `${distanceKm.toFixed(2)} km`;
+const DEFAULT_START_LOCATION = {
+  label: "Toronto City Hall",
+  lat: 43.6529,
+  lon: -79.3849,
+};
+
+function normalizePlaceResult(result, index = 0) {
+  const lat = Number(result.lat ?? result.latitude);
+  const lon = Number(result.lon ?? result.lng ?? result.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return null;
   }
-  return `${Math.round(distanceKm * 1000)} m`;
+  const address = result.address || {};
+  const displayName = result.display_name || "";
+  const nameCandidates = [
+    address.attraction,
+    address.museum,
+    address.mall,
+    address.railway,
+    address.townhall,
+    address.road,
+    displayName.split(",")[0]?.trim(),
+  ].filter(Boolean);
+  const name = nameCandidates[0] || `Place ${index + 1}`;
+  const city = address.city || address.town || address.village || address.state;
+  const typeLabel = (result.type || result.class || "Point of interest").replace(/_/g, " ");
+  const tags = Array.from(
+    new Set([typeLabel, city, address.road, address.neighbourhood].filter(Boolean)),
+  );
+  const features = {
+    wheelchair: result.class === "tourism" || result.type === "museum",
+    braille: result.type === "museum",
+    assistiveAudio: result.class === "tourism" || result.type === "theatre",
+  };
+
+  return {
+    id: result.place_id || `${lat}-${lon}-${index}`,
+    name,
+    location: displayName || `${lat.toFixed(3)}, ${lon.toFixed(3)}`,
+    rating: Number((3.5 + Math.random() * 1.4).toFixed(1)),
+    reviews: Math.max(42, Math.round((result.importance ?? 0.5) * 200)),
+    description: `Accessible ${typeLabel} in ${city || "this area"}.`,
+    tags,
+    features,
+    lat,
+    lng: lon,
+  };
 }
 
-function formatDuration(minutes) {
-  if (!Number.isFinite(minutes)) return "Duration unknown";
-  if (minutes < 60) {
-    return `${minutes} min`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  if (!remainder) return `${hours} hr`;
-  return `${hours} hr ${remainder} min`;
+function formatDistance(meters) {
+  if (!Number.isFinite(meters)) return "—";
+  if (meters < 1000) return `${meters.toFixed(0)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+function formatPercentage(value) {
+  if (!Number.isFinite(value)) return "—";
+  return `${Math.round(value * 100)}%`;
 }
 
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [places, setPlaces] = useState(() => [...STATIC_PLACES]);
-  const [selectedPlace, setSelectedPlace] = useState(STATIC_PLACES[0] ?? null);
+  const [places, setPlaces] = useState(PLACES);
+  const [selectedPlace, setSelectedPlace] = useState(PLACES[0] ?? null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [submittedReviews, setSubmittedReviews] = useState([]);
+  const [, setSubmittedReviews] = useState([]);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isAttractionsOpen, setIsAttractionsOpen] = useState(true);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [user, setUser] = useState(null);
-
+  const [recentSearches, setRecentSearches] = useState([]);
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState(null);
-
-  const [origin, setOrigin] = useState(DEFAULT_ORIGIN);
+  const [searchError, setSearchError] = useState("");
+  const [startLocation, setStartLocation] = useState(DEFAULT_START_LOCATION);
   const [isLocatingStart, setIsLocatingStart] = useState(false);
-  const [locationError, setLocationError] = useState(null);
-
-  const [activeRoute, setActiveRoute] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
   const [isRouting, setIsRouting] = useState(false);
-  const [routingError, setRoutingError] = useState(null);
-
-  const isInteractionLocked = isModalOpen || isFiltersOpen || isLoginOpen;
+  const [routeError, setRouteError] = useState("");
+  const overlayLocked = isModalOpen || isFiltersOpen || isLoginOpen || isPasswordOpen;
+  const isInteractionLocked = overlayLocked;
+  const navDisabled = overlayLocked;
   const inertProps = isInteractionLocked ? { "aria-hidden": "true", inert: "" } : {};
+  const startSummary =
+    Number.isFinite(startLocation?.lat) && Number.isFinite(startLocation?.lon)
+      ? `${startLocation.label} (${startLocation.lat.toFixed(3)}, ${startLocation.lon.toFixed(3)})`
+      : startLocation.label;
+  async function fetchRecent() {
+    if (!user) { setRecentSearches([]); return; }
+    const { data } = await supabase
+      .from("recent_searches")
+      .select("query")
+      .eq("user_id", user.id || user.uid)
+      .order("created_at", { ascending: false })
+      .limit(6);
+    setRecentSearches((data || []).map((r) => r.query));
+  }
 
-  const searchAbortRef = useRef(null);
-  const routeAbortRef = useRef(null);
-  const mapRef = useRef(null);
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    const trimmed = query?.trim();
+    if (!trimmed) {
+      setPlaces(PLACES);
+      setSelectedPlace(PLACES[0] ?? null);
+      setSearchError("");
+      return;
+    }
 
-  useEffect(() => {
-    let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) {
-        setUser(data.session?.user ?? null);
+    setIsSearching(true);
+    setSearchError("");
+    try {
+      const results = await fetchPlaces(trimmed, { limit: 8 });
+      const normalized = results
+        .map((item, index) => normalizePlaceResult(item, index))
+        .filter(Boolean);
+      setPlaces(normalized);
+      setSelectedPlace(normalized[0] ?? null);
+
+      if (user) {
+        try {
+          await supabase
+            .from("recent_searches")
+            .insert({ user_id: user.id || user.uid, query: trimmed });
+          fetchRecent();
+        } catch (error) {
+          console.error("Unable to store recent search", error);
+        }
       }
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => {
-      active = false;
-      listener?.subscription?.unsubscribe?.();
-    };
-  }, []);
+    } catch (error) {
+      console.error("Place search failed", error);
+      setSearchError(error.message || "Unable to fetch accessible places right now.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
-  const handleSubmitReview = useCallback((data) => {
+  const handleSubmitReview = (data) => {
     setSubmittedReviews((previous) => [
       ...previous,
       { ...data, id: `${Date.now()}`, createdAt: new Date().toISOString() },
     ]);
-  }, []);
-
-  const handleSetStartLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setLocationError("Geolocation is unavailable; using Toronto City Hall as the starting point.");
-      setOrigin(DEFAULT_ORIGIN);
-      return;
-    }
-    setIsLocatingStart(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const nextOrigin = {
-          lat: Number(position.coords.latitude.toFixed(6)),
-          lon: Number(position.coords.longitude.toFixed(6)),
-          label: "Current location",
-        };
-        setOrigin(nextOrigin);
-        setLocationError(null);
-        setIsLocatingStart(false);
-      },
-      () => {
-        setLocationError("Unable to determine your location; using Toronto City Hall as the starting point.");
-        setOrigin(DEFAULT_ORIGIN);
-        setIsLocatingStart(false);
-      },
-      { enableHighAccuracy: true, timeout: 8000 },
-    );
-  }, []);
-
-  const handleSearch = useCallback(
-    async (rawQuery) => {
-      const query = rawQuery.trim();
-      setSearchQuery(query);
-
-      if (searchAbortRef.current) {
-        searchAbortRef.current.abort();
-      }
-      if (routeAbortRef.current) {
-        routeAbortRef.current.abort();
-        routeAbortRef.current = null;
-      }
-      setActiveRoute(null);
-      setRoutingError(null);
-
-      if (!query) {
-        setIsSearching(false);
-        setSearchError(null);
-        setPlaces([...STATIC_PLACES]);
-        setSelectedPlace(STATIC_PLACES[0] ?? null);
-        return;
-      }
-
-      const controller = new AbortController();
-      searchAbortRef.current = controller;
-      setIsSearching(true);
-      setSearchError(null);
-      setSelectedPlace(null);
-
-      try {
-        const rawResults = await fetchPlaceSearch(query, { signal: controller.signal });
-        const mappedPlaces = rawResults
-          .map((item) => buildSearchablePlace(mapSearchResultToPlace(item)))
-          .filter(Boolean);
-
-        if (controller.signal.aborted) return;
-
-        if (!mappedPlaces.length) {
-          setSearchError("No results found. Try searching for a nearby landmark.");
-        }
-        setPlaces(mappedPlaces);
-        setSelectedPlace(mappedPlaces[0] ?? null);
-      } catch (error) {
-        if (error.name === "AbortError") return;
-        console.error("map search failed", error);
-        setSearchError("We could not reach the map service. Please try again.");
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsSearching(false);
-          if (searchAbortRef.current === controller) {
-            searchAbortRef.current = null;
-          }
-        }
-      }
-    },
-    [],
-  );
+  };
 
   const filteredPlaces = useMemo(() => {
-    const normalizedQuery = searchQuery.toLowerCase();
     return places.filter((place) => {
-      const matchesQuery = !normalizedQuery || place.searchBlob?.includes(normalizedQuery);
+      const matchesQuery =
+        !searchQuery ||
+        place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        place.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        place.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+
       const matchesFilters = Object.entries(filters).every(([key, value]) => {
         if (!value) return true;
-        return Boolean(place.features?.[key]);
+        return place.features[key];
       });
+
       return matchesQuery && matchesFilters;
     });
   }, [filters, places, searchQuery]);
@@ -315,340 +227,311 @@ function App() {
       setSelectedPlace(null);
       return;
     }
-    const stillVisible = filteredPlaces.some((place) => place.id === selectedPlace?.id);
-    if (!stillVisible) {
-      setSelectedPlace(filteredPlaces[0]);
-    }
+    const stillVisible = filteredPlaces.some((p) => p.id === selectedPlace?.id);
+    if (!stillVisible) setSelectedPlace(filteredPlaces[0]);
   }, [filteredPlaces, selectedPlace]);
 
-  const searchStatusMessage = useMemo(() => {
-    if (searchError) return searchError;
-    if (searchQuery && filteredPlaces.length && !isSearching) {
-      const label = filteredPlaces.length === 1 ? "result" : "results";
-      return `Showing ${filteredPlaces.length} ${label} for "${searchQuery}"`;
-    }
-    if (searchQuery && !filteredPlaces.length && !isSearching) {
-      return "No results match your filters.";
-    }
-    return null;
-  }, [filteredPlaces.length, isSearching, searchError, searchQuery]);
-
-  const combinedStatusMessage = useMemo(() => {
-    const pieces = [searchStatusMessage];
-    if (locationError && !isRouting) {
-      pieces.push(locationError);
-    }
-    return pieces.filter(Boolean).join(" · ");
-  }, [locationError, isRouting, searchStatusMessage]);
-
   useEffect(() => {
-    return () => {
-      if (searchAbortRef.current) searchAbortRef.current.abort();
-      if (routeAbortRef.current) routeAbortRef.current.abort();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!selectedPlace) {
-      if (routeAbortRef.current) {
-        routeAbortRef.current.abort();
-        routeAbortRef.current = null;
-      }
-      setActiveRoute(null);
-      setRoutingError(null);
-      setIsRouting(false);
+    if (
+      !selectedPlace ||
+      !Number.isFinite(selectedPlace?.lat) ||
+      !Number.isFinite(selectedPlace?.lng) ||
+      !Number.isFinite(startLocation?.lat) ||
+      !Number.isFinite(startLocation?.lon)
+    ) {
+      setRouteInfo(null);
       return;
     }
 
-    const hasDestinationCoords =
-      Number.isFinite(selectedPlace.lat) && Number.isFinite(selectedPlace.lon);
-    const hasOriginCoords =
-      Number.isFinite(origin?.lat) && Number.isFinite(origin?.lon ?? origin?.lng);
-
-    if (!hasDestinationCoords || !hasOriginCoords) {
-      return;
-    }
-
-    if (routeAbortRef.current) {
-      routeAbortRef.current.abort();
-    }
-    setActiveRoute(null);
-    setRoutingError(null);
-
-    const controller = new AbortController();
-    routeAbortRef.current = controller;
+    let isCancelled = false;
     setIsRouting(true);
-
-    const currentLocation = {
-      lat: origin.lat,
-      lon: origin.lon ?? origin.lng,
-      label: origin.label,
-    };
-    const destination = {
-      lat: selectedPlace.lat,
-      lon: selectedPlace.lon ?? selectedPlace.lng,
-      name: selectedPlace.name,
-    };
+    setRouteError("");
 
     (async () => {
       try {
-        const route = await requestAccessibleRoute(
-          {
-            currentLocation,
-            destination,
-            disabilityType: "wheelchair",
-            transportationMode: "walking",
-          },
-          { signal: controller.signal },
-        );
-        if (controller.signal.aborted) return;
-
-        const geometryCoords = Array.isArray(route?.geometry?.coordinates)
-          ? route.geometry.coordinates
-          : [];
-        const polyline =
-          geometryCoords.length > 1
-            ? geometryCoords.map(([lon, lat]) => [lat, lon])
-            : [];
-
-        setActiveRoute({
-          ...route,
-          polyline,
+        const route = await planWalkingRoute({
+          start: { lat: startLocation.lat, lon: startLocation.lon },
+          end: { lat: selectedPlace.lat, lon: selectedPlace.lng },
+          options: { allowLimitedSegments: true, limitedThreshold: 0.45 },
         });
+        if (!isCancelled) {
+          setRouteInfo(route);
+        }
       } catch (error) {
-        if (error.name === "AbortError") return;
-        console.error("route generation failed", error);
-        setRoutingError(error.message || "Could not generate an accessible route.");
+        if (!isCancelled) {
+          setRouteInfo(null);
+          setRouteError(
+            error.message === "route_not_found"
+              ? "No accessible path was found between these points."
+              : error.message || "Unable to generate a route right now.",
+          );
+        }
       } finally {
-        if (!controller.signal.aborted) {
+        if (!isCancelled) {
           setIsRouting(false);
-          if (routeAbortRef.current === controller) {
-            routeAbortRef.current = null;
-          }
         }
       }
     })();
 
     return () => {
-      controller.abort();
+      isCancelled = true;
     };
-  }, [origin, selectedPlace]);
+  }, [selectedPlace, startLocation]);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (activeRoute?.polyline?.length >= 2) {
-      const bounds = L.latLngBounds(activeRoute.polyline.map(([lat, lon]) => [lat, lon]));
-      map.fitBounds(bounds, { padding: [48, 48] });
-      return;
-    }
-
-    if (selectedPlace?.lat && selectedPlace?.lon) {
-      map.flyTo([selectedPlace.lat, selectedPlace.lon], 15, { duration: 0.75 });
-      return;
-    }
-
-    if (origin?.lat && origin?.lon) {
-      map.setView([origin.lat, origin.lon], 13);
-    }
-  }, [activeRoute, origin, selectedPlace]);
-
-  const handleSelectPlace = useCallback((place) => {
-    if (!place) return;
-    setSelectedPlace(place);
-    const map = mapRef.current;
-    if (map && place.coordinates) {
-      map.flyTo(place.coordinates, 15, { duration: 0.6 });
-    }
-  }, []);
-
-  const routeFeature = activeRoute?.accessibility?.features?.[0];
-  const routeWarning = activeRoute?.accessibility?.warnings?.[0];
-
-  const showRouteBanner = Boolean(activeRoute) || Boolean(isRouting) || Boolean(routingError);
-
-  const mapInitialCenter = useMemo(() => {
-    if (origin?.lat && origin?.lon) {
-      return [origin.lat, origin.lon];
-    }
-    return [DEFAULT_ORIGIN.lat, DEFAULT_ORIGIN.lon];
-  }, [origin]);
-
-  const routeScore =
-    typeof activeRoute?.accessibility?.score === "number"
-      ? Math.round(activeRoute.accessibility.score)
-      : null;
-
-  const currentOriginLabel = origin?.label || "Toronto City Hall";
-
-  const handleSignOut = useCallback(async () => {
+  const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-    } catch (error) {
-      console.warn("supabase signOut failed", error);
+    } finally {
+      setUser(null);
     }
-    setUser(null);
+  };
+
+  const handleAvatarUpload = () => {
+    if (!user) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const extension = file.name.split(".").pop();
+      const path = `${user.id || user.uid}/${Date.now()}.${extension}`;
+      const { data: uploaded, error } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+      if (error || !uploaded?.path) return;
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(uploaded.path);
+      await supabase.auth.updateUser({ data: { avatar_url: urlData.publicUrl } });
+      const { data: session } = await supabase.auth.getSession();
+      setUser(session.session?.user ?? null);
+    };
+    input.click();
+  };
+
+  const handleSetStartLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setRouteError("Geolocation is not supported in this browser.");
+      return;
+    }
+    setIsLocatingStart(true);
+    setRouteError("");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setStartLocation({
+          label: "Current location",
+          lat: coords.latitude,
+          lon: coords.longitude,
+        });
+        setIsLocatingStart(false);
+      },
+      (error) => {
+        setIsLocatingStart(false);
+        setRouteError(error.message || "Unable to access your current location.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  function FlyToSelected({ coords }) {
+    const map = useMap();
+    useEffect(() => {
+      if (!coords) return;
+      const targetZoom = Math.max(map.getZoom(), 14);
+      map.flyTo(coords, targetZoom, { duration: 0.6 });
+    }, [coords, map]);
+    return null;
+  }
+
+  function colorForPlace(p) {
+    const f = p?.features || {};
+    if (f.wheelchair) return "#14b8a6"; // teal
+    if (f.braille) return "#8b5cf6"; // violet
+    if (f.assistiveAudio) return "#f59e0b"; // amber
+    return "#2563eb"; // blue fallback
+  }
+
+  function getPinIcon(color) {
+    return L.divIcon({
+      className: "pin-icon",
+      html: `<div class="pin" style="--pin-color: ${color}"></div>`,
+      iconSize: [24, 36],
+      iconAnchor: [12, 28],
+      popupAnchor: [0, -26],
+    });
+  }
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) setIsLoginOpen(false);
+    });
+    return () => listener?.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    (async () => { if (user) await (async () => { const { data } = await supabase.from('recent_searches').select('query').eq('user_id', user.id || user.uid).order('created_at', { ascending: false }).limit(6); setRecentSearches((data||[]).map(r=>r.query)); })(); else setRecentSearches([]); })();
+  }, [user]);
 
   return (
     <>
+      {/* Top nav overlay */}
       <NavBar
-        onSignIn={() => setIsLoginOpen(true)}
+        onProfileClick={() => setIsLoginOpen(true)}
         onSignOut={handleSignOut}
+        onChangePassword={() => setIsPasswordOpen(true)}
+        onUploadAvatar={handleAvatarUpload}
         onSearch={handleSearch}
         onOpenFilters={() => setIsFiltersOpen((previous) => !previous)}
-        onToggleAttractions={() => setIsAttractionsOpen((value) => !value)}
+        onSetStartLocation={handleSetStartLocation}
         searchQuery={searchQuery}
         user={user}
-        isDisabled={isInteractionLocked}
-        onSetStartLocation={handleSetStartLocation}
-        originLabel={currentOriginLabel}
+        recentSearches={recentSearches}
+        isDisabled={navDisabled}
+        originLabel={startLocation.label}
         isLocatingStart={isLocatingStart}
       />
+
       <div className={`interaction-scrim ${isInteractionLocked ? "is-visible" : ""}`} aria-hidden="true" />
 
+      {/* Full-screen map background layer */}
       <div className="map-bg" aria-hidden={false}>
         <MapContainer
-          center={mapInitialCenter}
+          center={[43.6532, -79.3832]}
           zoom={13}
           scrollWheelZoom={!isInteractionLocked}
           dragging={!isInteractionLocked}
           doubleClickZoom={!isInteractionLocked}
           keyboard={!isInteractionLocked}
-          whenCreated={(mapInstance) => {
-            mapRef.current = mapInstance;
-          }}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           />
+          <ScaleControl position="bottomleft" />
           <ZoomControl position="bottomright" />
-
-          {origin?.lat && origin?.lon && (
-            <CircleMarker
-              center={[origin.lat, origin.lon]}
-              radius={9}
-              pathOptions={{ color: "#2563eb", fillColor: "#bfdbfe", fillOpacity: 0.9, weight: 3 }}
-            >
-              <Popup>
-                <strong>Start</strong>
-                <br />
-                {currentOriginLabel}
-              </Popup>
-            </CircleMarker>
-          )}
-
-          {selectedPlace?.lat && selectedPlace?.lon && (
-            <CircleMarker
-              center={[selectedPlace.lat, selectedPlace.lon]}
-              radius={10}
-              pathOptions={{ color: "#16a34a", fillColor: "#bbf7d0", fillOpacity: 0.85, weight: 3 }}
-            />
-          )}
-
           {filteredPlaces.map((place) => {
-            const coordinates = place.coordinates;
-            if (!coordinates) return null;
+            const color = colorForPlace(place);
+            const position = [place.lat, place.lng];
             return (
               <Marker
                 key={place.id}
-                position={coordinates}
-                eventHandlers={{
-                  click: () => handleSelectPlace(place),
-                }}
+                position={position}
+                icon={getPinIcon(color)}
+                eventHandlers={{ click: () => setSelectedPlace(place) }}
               >
                 <Popup>
                   <strong>{place.name}</strong>
                   <br />
-                  {place.location}
-                  <br />
-                  Accessibility: {place.rating?.toFixed(1) ?? "N/A"}
-                  <br />
-                  <button
-                    type="button"
-                    className="popup-link"
-                    onClick={() => {
-                      handleSelectPlace(place);
-                      setIsModalOpen(true);
-                    }}
-                  >
-                    Review this place
-                  </button>
+                  Accessibility: {place.rating}/5
                 </Popup>
               </Marker>
             );
           })}
-
-          {activeRoute?.polyline?.length >= 2 && (
+          {routeInfo?.polyline?.length ? (
             <Polyline
-              positions={activeRoute.polyline}
-              pathOptions={{ color: "#2563eb", weight: 6, opacity: 0.85 }}
+              positions={routeInfo.polyline.map(([lat, lon]) => [lat, lon])}
+              pathOptions={{ color: "#0ea5e9", weight: 5, opacity: 0.85 }}
             />
-          )}
+          ) : null}
+          <FlyToSelected coords={selectedPlace ? [selectedPlace.lat, selectedPlace.lng] : null} />
         </MapContainer>
       </div>
 
+      {/* Overlay widgets */}
       <img className="corner-logo" src={logo} alt="Accessible Travel Finder" />
-
-      {showRouteBanner && (
-        <div className={`route-banner ${routingError ? "route-banner--error" : ""}`}>
-          <div className="route-banner__title">
-            {routingError
-              ? "Route unavailable"
-              : isRouting
-              ? "Calculating accessible route..."
-              : `Route to ${selectedPlace?.name ?? "destination"}`}
-          </div>
-          <div className="route-banner__meta">
-            {routingError
-              ? routingError
-              : isRouting
-              ? `From ${currentOriginLabel}`
-              : `${formatDistance(activeRoute?.distance)} · ${formatDuration(
-                  activeRoute?.duration,
-                )}${routeScore !== null ? ` · Accessibility score ${routeScore}` : ""}`}
-          </div>
-          {!routingError && !isRouting && activeRoute && (
-            <>
-              <div className="route-banner__note">From {currentOriginLabel}</div>
-              {routeFeature && <div className="route-banner__note">{routeFeature}</div>}
-              {routeWarning && (
-                <div className="route-banner__note route-banner__note--warning">
-                  Heads-up: {routeWarning}
-                </div>
-              )}
-            </>
-          )}
-          {routingError && locationError && (
-            <div className="route-banner__note route-banner__note--warning">{locationError}</div>
-          )}
-        </div>
-      )}
-
       <div className="app-shell">
         <div className={`app-shell__content ${isInteractionLocked ? "is-blocked" : ""}`} {...inertProps}>
-          {isAttractionsOpen && (
-            <div className="overlay-panel">
-              <div className="overlay-header">
-                <span className="overlay-title">Top Results</span>
-              </div>
-              <div className="overlay-panel__body">
-                <PlaceList
-                  places={filteredPlaces}
-                  selectedPlaceId={selectedPlace?.id}
-                  onSelect={handleSelectPlace}
-                  isLoading={isSearching}
-                  statusMessage={combinedStatusMessage}
-                />
-              </div>
+          {/* Places list (right side panel) */}
+          <div className="overlay-panel">
+            <div className="overlay-header">
+              <span className="overlay-title">Top Results</span>
             </div>
-          )}
+            <div className="overlay-panel__body">
+              <PlaceList
+                places={filteredPlaces}
+                selectedPlaceId={selectedPlace?.id}
+                onSelect={setSelectedPlace}
+                isLoading={isSearching}
+                errorMessage={searchError}
+              />
+            </div>
+          </div>
 
-          <button className="fab" onClick={() => setIsModalOpen(true)}>
-            + Review
-          </button>
+          <div className="selected-place-panel">
+            <div className={`selected-place ${selectedPlace ? "" : "is-empty"}`}>
+              {selectedPlace ? (
+                <>
+                  <p className="selected-place__location">{selectedPlace.location}</p>
+                  <h2>{selectedPlace.name}</h2>
+                  <p>{selectedPlace.description}</p>
+                  <div className="selected-place__tags">
+                    {selectedPlace.tags?.map((tag) => (
+                      <span key={tag} className="tag">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p>Select a place to view accessibility highlights.</p>
+              )}
+            </div>
+
+            <div className="route-panel">
+              <label className="route-panel__label">
+                <span>Start point</span>
+                <input className="route-panel__input" value={startSummary} readOnly title={startSummary} />
+              </label>
+              <p className="route-panel__hint">
+                Use “Set Start Location” in the nav bar to update with your current position.
+              </p>
+              {!routeInfo && !isRouting && !routeError && (
+                <p className="route-panel__hint">Select a destination to generate a pathway.</p>
+              )}
+              {routeError && <p className="route-panel__error">{routeError}</p>}
+              {!routeError && isRouting && (
+                <p className="route-panel__status">Mapping an accessible pathway…</p>
+              )}
+              {routeInfo && !routeError && (
+                <>
+                  <div className="route-panel__summary">
+                    <strong>{selectedPlace?.name}</strong>
+                    <span>Distance: {formatDistance(routeInfo.metrics?.total_distance_m)}</span>
+                    <span>
+                      Accessible coverage: {formatPercentage(routeInfo.metrics?.accessible_segment_ratio)}
+                    </span>
+                    <span>
+                      Network offsets: start {formatDistance(routeInfo.start?.offset_m)} · end {" "}
+                      {formatDistance(routeInfo.end?.offset_m)}
+                    </span>
+                  </div>
+                  {routeInfo.segments?.length ? (
+                    <>
+                      <p className="route-panel__hint">Preview of the safest segments:</p>
+                      <ul className="route-panel__results">
+                        {routeInfo.segments.slice(0, 5).map((segment, index) => (
+                          <li key={`${segment.id || "segment"}-${index}`}>
+                            <button type="button" disabled>
+                              <span className="label">Segment {index + 1}</span>
+                              <span className="meta">
+                                {formatDistance(segment.length)} · score {" "}
+                                {(segment.score ?? 0.5).toFixed(2)}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p className="route-panel__hint">Route computed successfully.</p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          <button className="fab" onClick={() => setIsModalOpen(true)}>+ Review</button>
         </div>
 
         <FiltersModal
@@ -662,6 +545,11 @@ function App() {
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleSubmitReview}
           placeName={selectedPlace?.name}
+        />
+        <ChangePasswordModal
+          isOpen={isPasswordOpen}
+          onClose={() => setIsPasswordOpen(false)}
+          onSubmit={async (pwd) => { await supabase.auth.updateUser({ password: pwd }); }}
         />
         {isLoginOpen && (
           <LoginScreen

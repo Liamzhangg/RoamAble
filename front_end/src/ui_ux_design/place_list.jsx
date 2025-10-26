@@ -1,8 +1,14 @@
-function PlaceList({ places = [], selectedPlaceId, onSelect, isLoading = false, statusMessage }) {
+function PlaceList({
+  places = [],
+  selectedPlaceId,
+  onSelect,
+  isLoading = false,
+  errorMessage = "",
+}) {
   if (isLoading) {
     return (
       <section className="panel place-list">
-        <div className="place-list__empty">Searching for accessible places...</div>
+        <div className="place-list__empty">Searching for accessible locations…</div>
       </section>
     );
   }
@@ -11,7 +17,7 @@ function PlaceList({ places = [], selectedPlaceId, onSelect, isLoading = false, 
     return (
       <section className="panel place-list">
         <div className="place-list__empty">
-          {statusMessage || "No matches yet. Adjust your search or filters to discover more spots."}
+          {errorMessage || "No matches yet. Adjust your search or filters to discover more spots."}
         </div>
       </section>
     );
@@ -26,22 +32,10 @@ function PlaceList({ places = [], selectedPlaceId, onSelect, isLoading = false, 
         </div>
         <span className="pill">{places.length} listed</span>
       </header>
-      {statusMessage && <p className="place-list__status">{statusMessage}</p>}
+      {errorMessage && <p className="route-panel__error">{errorMessage}</p>}
 
       <ul className="place-list__items">
         {places.map((place) => {
-          const rating =
-            typeof place.rating === "number" && Number.isFinite(place.rating) ? place.rating : null;
-          const ratingLabel = rating !== null ? rating.toFixed(1) : "N/A";
-          const description = place.description || place.location || "Accessible location";
-          const reviewsLabel =
-            typeof place.reviews === "number" && Number.isFinite(place.reviews)
-              ? `${place.reviews} reviews`
-              : place.source === "nominatim"
-              ? "OpenStreetMap data"
-              : "Reviews unavailable";
-          const tags = Array.isArray(place.tags) ? place.tags : [];
-
           const isActive = selectedPlaceId === place.id;
           return (
             <li
@@ -57,14 +51,18 @@ function PlaceList({ places = [], selectedPlaceId, onSelect, isLoading = false, 
               <div className="place-card__body">
                 <div className="place-card__title-row">
                   <h3>{place.name}</h3>
-                  <span className="rating-badge">{ratingLabel}</span>
+                  <span className="rating-badge">
+                    {typeof place.rating === "number" ? place.rating.toFixed(1) : "—"}
+                  </span>
                 </div>
                 <p className="place-card__location">{place.location}</p>
-                <p className="place-card__description">{description}</p>
+                <p className="place-card__description">{place.description}</p>
                 <div className="place-card__meta">
-                  <span>{reviewsLabel}</span>
+                  <span>
+                    {typeof place.reviews === "number" ? `${place.reviews} reviews` : "New listing"}
+                  </span>
                   <div className="place-card__tags">
-                    {tags.map((tag) => (
+                    {place.tags?.map((tag) => (
                       <span key={tag} className="tag">
                         {tag}
                       </span>

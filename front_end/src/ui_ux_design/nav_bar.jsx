@@ -1,28 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 
-const SEARCH_SUGGESTIONS = [
-  { label: "Step-free museums", value: "step-free museums" },
-  { label: "Quiet restaurants", value: "quiet restaurants" },
-  { label: "Accessible hotels", value: "accessible hotels" },
-  { label: "Braille menus", value: "braille menu" },
+const FALLBACK_SUGGESTIONS = [
+  "Harbourfront Centre",
+  "Accessible hotels",
+  "Step-free museums",
 ];
 
 function NavBar({
-  onSignIn,
+  onProfileClick,
   onSignOut,
+  onChangePassword,
+  onUploadAvatar,
   onSearch,
   onOpenFilters,
-  onToggleAttractions,
   onSetStartLocation,
   searchQuery = "",
   user,
+  recentSearches = [],
   isDisabled = false,
   originLabel = "Toronto City Hall",
   isLocatingStart = false,
 }) {
   const [query, setQuery] = useState(searchQuery);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const searchRef = useRef(null);
+  const menuRef = useRef(null);
+  const iconRef = useRef(null);
+
   const inertProps = isDisabled ? { "aria-hidden": "true", inert: "" } : {};
 
   useEffect(() => {
@@ -42,6 +47,25 @@ function NavBar({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isDropdownOpen]);
 
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleClick = (event) => {
+      const clickedMenu = menuRef.current?.contains(event.target);
+      const clickedIcon = iconRef.current?.contains(event.target);
+      if (!clickedMenu && !clickedIcon) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!user) {
+      setIsMenuOpen(false);
+    }
+  }, [user]);
+
   const handleSubmit = (event) => {
     event.preventDefault();
     onSearch?.(query.trim());
@@ -53,6 +77,18 @@ function NavBar({
     onSearch?.(value);
     setIsDropdownOpen(false);
   };
+
+  const handleProfileToggle = () => {
+    if (user) {
+      setIsMenuOpen((previous) => !previous);
+    } else {
+      setIsMenuOpen(false);
+      onProfileClick?.();
+    }
+  };
+
+  const avatarLabel = user?.email?.charAt(0)?.toUpperCase() ?? "👤";
+  const suggestions = recentSearches?.length ? recentSearches : FALLBACK_SUGGESTIONS;
 
   return (
     <header className={`header-bar ${isDisabled ? "is-blocked" : ""}`} {...inertProps}>
@@ -82,16 +118,16 @@ function NavBar({
           </form>
           {isDropdownOpen && (
             <div id="nav-search-dropdown" className="nav-search__dropdown">
-              <p className="nav-search__hint">Try one of these popular filters:</p>
+              <p className="nav-search__hint">Quick picks</p>
               <div className="nav-search__suggestions">
-                {SEARCH_SUGGESTIONS.map((item) => (
+                {suggestions.map((value) => (
                   <button
-                    key={item.value}
+                    key={value}
                     type="button"
                     className="nav-search__suggestion"
-                    onClick={() => handleSuggestionClick(item.value)}
+                    onClick={() => handleSuggestionClick(value)}
                   >
-                    {item.label}
+                    {value}
                   </button>
                 ))}
               </div>
@@ -110,16 +146,6 @@ function NavBar({
             {isLocatingStart ? "Locating..." : "Set Start Location"}
           </a>
           <span className="nav-start-label">From: {originLabel}</span>
-          <a href="#history">History</a>
-          {/* <a
-            href="#list"
-            onClick={(e) => {
-              e.preventDefault();
-              onToggleAttractions?.();
-            }}
-          >
-            Top Attractions
-          </a> */}
           <a
             href="#filters"
             onClick={(e) => {
@@ -132,20 +158,51 @@ function NavBar({
           <a href="#hotels">Hotels</a>
           <a href="#restaurants">Restaurants</a>
         </div>
-        <div className="nav-auth">
-          {user ? (
-            <>
-              <span className="nav-auth__user" title={user.email ?? "Signed in"}>
-                {user.email ?? "Signed in"}
-              </span>
-              <button className="nav-signin nav-signin--solid" onClick={onSignOut}>
+        <div className="nav-actions">
+          <button
+            type="button"
+            className={`nav-icon ${user ? "is-authenticated" : ""}`}
+            onClick={handleProfileToggle}
+            aria-label={user ? "Account menu" : "Open sign in"}
+            ref={iconRef}
+          >
+            {avatarLabel}
+          </button>
+          {user && isMenuOpen && (
+            <div className="nav-profile-menu" ref={menuRef}>
+              <span className="nav-profile-menu__email">{user.email}</span>
+              {onChangePassword && (
+                <button
+                  className="nav-profile-menu__action nav-profile-menu__action--ghost"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onChangePassword();
+                  }}
+                >
+                  Change password
+                </button>
+              )}
+              {onUploadAvatar && (
+                <button
+                  className="nav-profile-menu__action nav-profile-menu__action--ghost"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onUploadAvatar();
+                  }}
+                >
+                  Upload photo
+                </button>
+              )}
+              <button
+                className="nav-profile-menu__action"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onSignOut?.();
+                }}
+              >
                 Sign out
               </button>
-            </>
-          ) : (
-            <button className="nav-signin nav-signin--solid" onClick={onSignIn}>
-              Sign in
-            </button>
+            </div>
           )}
         </div>
       </nav>

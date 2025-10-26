@@ -45,6 +45,7 @@ const FALLBACK_SEARCH_RESULTS = [
       country_code: 'ca',
     },
   },
+
   {
     place_id: 'fallback-eaton-centre',
     osm_type: 'way',
@@ -197,6 +198,7 @@ router.post('/map/location-details', async (req, res) => {
     return res.status(502).json({ error: 'failed_to_fetch_location_details' });
   }
 });
+
 
 router.post('/routes/walking', async (req, res) => {
   const { start, end, options = {} } = req.body || {};

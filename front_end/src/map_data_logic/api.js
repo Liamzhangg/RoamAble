@@ -1,128 +1,108 @@
-const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.replace(/\/$/, "")) ||
-  "http://localhost:3000";
+const DEFAULT_API_BASE = "http://localhost:3000/api";
 
-export async function fetchPlaceSearch(query, { signal } = {}) {
-  if (!query) return [];
+function getApiBase() {
+  const raw = import.meta.env?.VITE_API_BASE_URL || DEFAULT_API_BASE;
+  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+}
 
-  const params = new URLSearchParams({ query });
-  const response = await fetch(`${API_BASE_URL}/api/map/search?${params.toString()}`, {
-    method: "GET",
+async function request(path, { method = "GET", params, body } = {}) {
+  const base = getApiBase();
+  const url = new URL(`${base}${path}`);
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      url.searchParams.set(key, String(value));
+    });
+  }
+
+  const fetchOptions = {
+    method,
     headers: {
       Accept: "application/json",
     },
-    signal,
-  });
+  };
+
+  if (body !== undefined) {
+    fetchOptions.headers["Content-Type"] = "application/json";
+    fetchOptions.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url.toString(), fetchOptions);
+  let payload = null;
+  const text = await response.text();
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      throw new Error("Received malformed response from the server.");
+    }
+  }
 
   if (!response.ok) {
-    throw new Error(`Place search failed with status ${response.status}`);
+    const message =
+      payload?.error ||
+      payload?.message ||
+      `Request failed with status ${response.status}`;
+    throw new Error(message);
   }
 
-  const payload = await response.json();
-  if (!payload || !Array.isArray(payload.results)) {
+  return payload;
+}
+
+export async function searchPlaces(query, { limit = 6 } = {}) {
+  if (!query) {
     return [];
   }
-  return payload.results;
-}
-
-export function mapSearchResultToPlace(result) {
-  if (!result) return null;
-
-  const lat = parseFloat(result.lat);
-  const lon = parseFloat(result.lon ?? result.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return null;
-  }
-
-  const displayName = result.display_name || result.name || "Unknown location";
-  const primaryName =
-    result.name ||
-    (typeof displayName === "string" ? displayName.split(",")[0]?.trim() : null) ||
-    "Point of interest";
-  const address = result.address || {};
-  const extratags = result.extratags || {};
-
-  const tags = new Set();
-  if (result.type) tags.add(result.type.replace(/_/g, " "));
-  if (result.category) tags.add(result.category);
-  if (result.class) tags.add(result.class);
-  if (address.neighbourhood) tags.add(address.neighbourhood);
-  if (address.suburb) tags.add(address.suburb);
-
-  const wheelchairTag = extratags.wheelchair || result.wheelchair;
-  const features = {
-    wheelchair: wheelchairTag === "yes",
-    braille: extratags.braille === "yes",
-    assistiveAudio: extratags.hearing_loop === "yes" || extratags.audio === "yes",
-  };
-
-  const baseRating = result.importance
-    ? Math.min(5, Math.max(3.2, 3 + Number(result.importance) * 1.5))
-    : 4.1;
-
-  const place = {
-    id: `osm-${result.place_id}`,
-    name: primaryName,
-    location:
-      [address.house_number, address.road, address.city, address.state]
-        .filter(Boolean)
-        .join(" ") || displayName,
-    rating: Number(baseRating.toFixed(1)),
-    reviews: undefined,
-    lat,
-    lon,
-    lng: lon,
-    coordinates: [lat, lon],
-    tags: Array.from(tags).filter(Boolean).slice(0, 5),
-    features,
-    description: extratags?.short_description || displayName,
-    searchLabel: displayName,
-    source: "nominatim",
-  };
-
-  return place;
-}
-
-export async function requestAccessibleRoute(
-  {
-    currentLocation,
-    destination,
-    disabilityType = "wheelchair",
-    transportationMode = "walking",
-  },
-  { signal } = {},
-) {
-  const response = await fetch(`${API_BASE_URL}/api/routes/navigate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      currentLocation,
-      destination,
-      disabilityType,
-      transportationMode,
-    }),
-    signal,
+  const data = await request("/map/search", {
+    method: "GET",
+    params: { query, limit },
   });
+  return data?.results ?? [];
+}
 
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch (error) {
-    // ignore parse error; handled below
+export async function reverseGeocode(lat, lon) {
+  const data = await request("/map/reverse", {
+    method: "GET",
+    params: { lat, lon },
+  });
+  return data?.result ?? null;
+}
+
+export async function fetchLocationDetails(locationName) {
+  const data = await request("/map/location-details", {
+    method: "POST",
+    body: { locationName },
+  });
+  return data?.details ?? null;
+}
+
+export async function planWalkingRoute({ start, end, options = {} }) {
+  const response = await request("/routes/walking", {
+    method: "POST",
+    body: { start, end, options },
+  });
+  if (!response?.route?.success) {
+    const reason = response?.route?.reason || "route_not_found";
+    throw new Error(reason);
   }
+  return response.route;
+}
 
-  if (!response.ok || !payload?.success || !payload.route) {
-    const message =
-      payload?.error || `Route request failed with status ${response.status}`;
-    const routeError = new Error(message);
-    if (payload?.details) {
-      routeError.details = payload.details;
-    }
-    throw routeError;
+export async function planTransitRoute({ start, end, options = {} }) {
+  const response = await request("/routes/transit", {
+    method: "POST",
+    body: { start, end, options },
+  });
+  return response?.trip ?? null;
+}
+
+export async function navigateAccessibleRoute(payload) {
+  const response = await request("/routes/navigate", {
+    method: "POST",
+    body: payload,
+  });
+  if (!response?.success) {
+    throw new Error(response?.error || "routing_failed");
   }
-
-  return payload.route;
+  return response.route;
 }

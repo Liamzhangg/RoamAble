@@ -1,4 +1,4 @@
-import { FILTER_OPTIONS } from "./filters_bar.jsx";
+import { FILTER_OPTIONS } from "./filter_options.js";
 
 function FiltersModal({ isOpen, onClose, filters, onChange }) {
   if (!isOpen) {
