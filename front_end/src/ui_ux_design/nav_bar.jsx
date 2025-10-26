@@ -14,6 +14,7 @@ function NavBar({
   onSearch,
   onOpenFilters,
   onSetStartLocation,
+  onApplyStartLocation,
   searchQuery = "",
   user,
   recentSearches = [],
@@ -23,6 +24,7 @@ function NavBar({
 }) {
   const [query, setQuery] = useState(searchQuery);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [originDraft, setOriginDraft] = useState(originLabel);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const searchRef = useRef(null);
   const menuRef = useRef(null);
@@ -33,6 +35,10 @@ function NavBar({
   useEffect(() => {
     setQuery(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    setOriginDraft(originLabel);
+  }, [originLabel]);
 
   useEffect(() => {
     if (!isDropdownOpen) return;
@@ -88,6 +94,17 @@ function NavBar({
   };
 
   const avatarLabel = user?.email?.charAt(0)?.toUpperCase() ?? "👤";
+  const handleOriginSubmit = async (event) => {
+    event.preventDefault();
+    if (isDisabled) return;
+    const trimmed = (originDraft || "").trim();
+    if (!trimmed) {
+      onSetStartLocation?.();
+      return;
+    }
+    await onApplyStartLocation?.(trimmed);
+  };
+
   const suggestions = recentSearches?.length ? recentSearches : FALLBACK_SUGGESTIONS;
 
   return (
@@ -110,7 +127,7 @@ function NavBar({
               aria-expanded={isDropdownOpen}
               aria-controls="nav-search-dropdown"
             >
-              Suggestions <span aria-hidden="true">{isDropdownOpen ? "▲" : "▼"}</span>
+              Recent <span aria-hidden="true">{isDropdownOpen ? "▲" : "▼"}</span>
             </button>
             <button type="submit" className="btn btn-primary nav-search__submit">
               Search
@@ -118,9 +135,9 @@ function NavBar({
           </form>
           {isDropdownOpen && (
             <div id="nav-search-dropdown" className="nav-search__dropdown">
-              <p className="nav-search__hint">Quick picks</p>
+              <p className="nav-search__hint">Recent searches</p>
               <div className="nav-search__suggestions">
-                {suggestions.map((value) => (
+                {suggestions.slice(0, 3).map((value) => (
                   <button
                     key={value}
                     type="button"
@@ -134,18 +151,39 @@ function NavBar({
             </div>
           )}
         </div>
-        <div className="nav-bar__links">
-          <a
-            href="#set_start_location"
+        <div className="nav-bar__links" role="navigation">
+          <form className="nav-origin" onSubmit={handleOriginSubmit}>
+            <label className="nav-origin__label" htmlFor="nav-origin-input">
+              From:
+            </label>
+            <input
+              id="nav-origin-input"
+              type="text"
+              className="nav-origin__input"
+              value={originDraft}
+              onChange={(event) => setOriginDraft(event.target.value)}
+              placeholder="Enter starting point"
+              disabled={isDisabled}
+            />
+            <button
+              type="submit"
+              className="btn btn-ghost nav-origin__apply"
+              disabled={isDisabled || isLocatingStart || !originDraft.trim()}
+            >
+              Apply
+            </button>
+          </form>
+          <button
+            type="button"
+            className="btn btn-ghost nav-origin__current"
             onClick={(event) => {
               event.preventDefault();
               onSetStartLocation?.();
             }}
-            aria-live="polite"
+            disabled={isDisabled || isLocatingStart}
           >
-            {isLocatingStart ? "Locating..." : "Set Start Location"}
-          </a>
-          <span className="nav-start-label">From: {originLabel}</span>
+            {isLocatingStart ? "Locating..." : "Use current"}
+          </button>
           <a
             href="#filters"
             onClick={(e) => {

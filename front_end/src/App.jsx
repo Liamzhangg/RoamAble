@@ -10,6 +10,7 @@ import {
   Marker,
   ScaleControl,
   Polyline,
+  CircleMarker,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
@@ -319,8 +320,8 @@ function App() {
       ({ coords }) => {
         setStartLocation({
           label: "Current location",
-          lat: coords.latitude,
-          lon: coords.longitude,
+          lat: Number(coords.latitude.toFixed(6)),
+          lon: Number(coords.longitude.toFixed(6)),
         });
         setIsLocatingStart(false);
       },
@@ -330,6 +331,38 @@ function App() {
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
+  };
+
+  const handleManualStartApply = async (input) => {
+    const trimmed = (input || "").trim();
+    if (!trimmed) {
+      return false;
+    }
+    setIsLocatingStart(true);
+    setRouteError("");
+    let success = false;
+    try {
+      const results = await fetchPlaces(trimmed, { limit: 1 });
+      const normalized = results
+        .map((item, index) => normalizePlaceResult(item, index))
+        .find(Boolean);
+      if (!normalized) {
+        setRouteError("We couldn't find that starting point. Try another landmark or city.");
+      } else {
+        setStartLocation({
+          label: normalized.name,
+          lat: normalized.lat,
+          lon: normalized.lng,
+        });
+        success = true;
+      }
+    } catch (error) {
+      console.error("manual start location lookup failed", error);
+      setRouteError("Unable to set that starting point right now.");
+    } finally {
+      setIsLocatingStart(false);
+    }
+    return success;
   };
 
   function FlyToSelected({ coords }) {
@@ -384,6 +417,7 @@ function App() {
         onSearch={handleSearch}
         onOpenFilters={() => setIsFiltersOpen((previous) => !previous)}
         onSetStartLocation={handleSetStartLocation}
+        onApplyStartLocation={handleManualStartApply}
         searchQuery={searchQuery}
         user={user}
         recentSearches={recentSearches}
@@ -410,6 +444,15 @@ function App() {
           />
           <ScaleControl position="bottomleft" />
           <ZoomControl position="bottomright" />
+          {Number.isFinite(startLocation?.lat) && Number.isFinite(startLocation?.lon) && (
+            <CircleMarker
+              center={[startLocation.lat, startLocation.lon]}
+              radius={8}
+              pathOptions={{ color: "#0f172a", weight: 2, fillColor: "#0f172a", fillOpacity: 0.9 }}
+            >
+              <Popup>Start: {startLocation.label || "Current location"}</Popup>
+            </CircleMarker>
+          )}
           {filteredPlaces.map((place) => {
             const color = colorForPlace(place);
             const position = [place.lat, place.lng];
@@ -442,7 +485,7 @@ function App() {
       <img className="corner-logo" src={logo} alt="Accessible Travel Finder" />
       <div className="app-shell">
         <div className={`app-shell__content ${isInteractionLocked ? "is-blocked" : ""}`} {...inertProps}>
-          {/* Places list (right side panel) */}
+          {/* Places list (left overlay panel) */}
           <div className="overlay-panel">
             <div className="overlay-header">
               <span className="overlay-title">Top Results</span>
@@ -458,27 +501,30 @@ function App() {
             </div>
           </div>
 
-          <div className="selected-place-panel">
-            <div className={`selected-place ${selectedPlace ? "" : "is-empty"}`}>
-              {selectedPlace ? (
-                <>
-                  <p className="selected-place__location">{selectedPlace.location}</p>
-                  <h2>{selectedPlace.name}</h2>
-                  <p>{selectedPlace.description}</p>
-                  <div className="selected-place__tags">
-                    {selectedPlace.tags?.map((tag) => (
-                      <span key={tag} className="tag">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <p>Select a place to view accessibility highlights.</p>
-              )}
-            </div>
-
+          <div className="route-panel-container">
             <div className="route-panel">
+              {selectedPlace ? (
+                <div className="route-panel__destination">
+                  <span className="route-panel__destination-label">Destination</span>
+                  <h2 className="route-panel__destination-name">{selectedPlace.name}</h2>
+                  <p className="route-panel__destination-meta">{selectedPlace.location}</p>
+                  {selectedPlace.description ? (
+                    <p className="route-panel__destination-description">{selectedPlace.description}</p>
+                  ) : null}
+                  {selectedPlace.tags?.length ? (
+                    <div className="route-panel__destination-tags">
+                      {selectedPlace.tags.map((tag) => (
+                        <span key={tag} className="tag">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="route-panel__hint">Select a place to preview its accessibility highlights.</p>
+              )}
+
               <label className="route-panel__label">
                 <span>Start point</span>
                 <input className="route-panel__input" value={startSummary} readOnly title={startSummary} />
@@ -502,21 +548,19 @@ function App() {
                       Accessible coverage: {formatPercentage(routeInfo.metrics?.accessible_segment_ratio)}
                     </span>
                     <span>
-                      Network offsets: start {formatDistance(routeInfo.start?.offset_m)} · end {" "}
+                      Network offsets: start {formatDistance(routeInfo.start?.offset_m)} · end{" "}
                       {formatDistance(routeInfo.end?.offset_m)}
                     </span>
                   </div>
                   {routeInfo.segments?.length ? (
                     <>
-                      <p className="route-panel__hint">Preview of the safest segments:</p>
                       <ul className="route-panel__results">
                         {routeInfo.segments.slice(0, 5).map((segment, index) => (
                           <li key={`${segment.id || "segment"}-${index}`}>
                             <button type="button" disabled>
                               <span className="label">Segment {index + 1}</span>
                               <span className="meta">
-                                {formatDistance(segment.length)} · score {" "}
-                                {(segment.score ?? 0.5).toFixed(2)}
+                                {formatDistance(segment.length)} · score {(segment.score ?? 0.5).toFixed(2)}
                               </span>
                             </button>
                           </li>
