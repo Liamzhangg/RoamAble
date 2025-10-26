@@ -1,3 +1,4 @@
+import logo from "./assets/logo.png";
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
@@ -148,8 +149,10 @@ function App() {
       </div>
 
       {/* Overlay widgets */}
+      <img className="corner-logo" src={logo} alt="Accessible Travel Finder" />
       <div className="app-shell">
         {/* Filters card (top-right) */}
+
         <div className="overlay-card overlay-filters">
           <FiltersBar filters={filters} onChange={setFilters} />
         </div>
