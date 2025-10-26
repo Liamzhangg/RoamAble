@@ -12,14 +12,12 @@ import {
   ZoomControl,
 } from "react-leaflet";
 import L from "leaflet";
-import { signOut } from "firebase/auth";
-
 import AddReviewModal from "./ui_ux_design/add_review_modal.jsx";
 import NavBar from "./ui_ux_design/nav_bar.jsx";
 import PlaceList from "./ui_ux_design/place_list.jsx";
 import LoginScreen from "./ui_ux_design/login_screen.jsx";
 import FiltersModal from "./ui_ux_design/filters_modal.jsx";
-import { auth } from "./ui_ux_design/lib/firebase.js";
+import { supabase } from "./ui_ux_design/lib/supabaseClient.js";
 import {
   fetchPlaceSearch,
   mapSearchResultToPlace,
@@ -191,6 +189,22 @@ function App() {
   const searchAbortRef = useRef(null);
   const routeAbortRef = useRef(null);
   const mapRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) {
+        setUser(data.session?.user ?? null);
+      }
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => {
+      active = false;
+      listener?.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   const handleSubmitReview = useCallback((data) => {
     setSubmittedReviews((previous) => [
@@ -470,10 +484,11 @@ function App() {
 
   const handleSignOut = useCallback(async () => {
     try {
-      await signOut(auth);
-    } finally {
-      setUser(null);
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn("supabase signOut failed", error);
     }
+    setUser(null);
   }, []);
 
   return (
