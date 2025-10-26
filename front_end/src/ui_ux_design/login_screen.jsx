@@ -1,146 +1,122 @@
 import { useState } from "react";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  sendPasswordResetEmail,
-} from "firebase/auth";
-import { auth } from "./lib/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "./lib/firebase.js";
 
-export default function LoginScreen({ onLoginSuccess }) {
+function LoginScreen({ onClose, onSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
-  const handleSignIn = async () => {
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
-    setIsLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      onLoginSuccess();
-    } catch (err) {
-      setError(err.message);
-    }
-    setIsLoading(false);
-  };
+    setIsSubmitting(true);
 
-  const handleSignUp = async () => {
-    setError("");
-    setIsLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      onLoginSuccess();
+      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      onSuccess?.(credential.user);
     } catch (err) {
-      setError(err.message);
+      setError(mapFirebaseError(err));
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsLoading(false);
-  };
-
-  const handleGoogleSignIn = async () => {
-    setError("");
-    setIsLoading(true);
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      onLoginSuccess();
-    } catch (err) {
-      setError(err.message);
-    }
-    setIsLoading(false);
-  };
-
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError("Please enter your email to reset password");
-      return;
-    }
-    setError("");
-    setIsLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, email);
-      setError("Password reset email sent!");
-    } catch (err) {
-      setError(err.message);
-    }
-    setIsLoading(false);
-  };
-
-  const handleGuest = () => {
-    onLoginSuccess();
   };
 
   return (
-    <div className="flex flex-col justify-center items-center h-screen bg-gradient-to-b from-blue-200 to-blue-400 px-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm">
-        <h1 className="text-2xl font-bold mb-6 text-center">AccessMap Login</h1>
-
-        {error && (
-          <div
-            className={`p-2 mb-4 rounded ${
-              error.includes("sent")
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
-            }`}
-          >
-            {error}
-          </div>
-        )}
-
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 mb-4 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-3 mb-4 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-
-        <button
-          onClick={handleSignIn}
-          className="w-full bg-blue-500 text-white py-3 rounded mb-2 hover:bg-blue-600 transition-colors disabled:opacity-50"
-          disabled={isLoading}
-        >
-          {isLoading ? "Signing In..." : "Sign In"}
-        </button>
-
-        <button
-          onClick={handleSignUp}
-          className="w-full bg-green-500 text-white py-3 rounded mb-2 hover:bg-green-600 transition-colors disabled:opacity-50"
-          disabled={isLoading}
-        >
-          {isLoading ? "Signing Up..." : "Sign Up"}
-        </button>
-
-        <button
-          onClick={handleGoogleSignIn}
-          className="w-full bg-red-500 text-white py-3 rounded mb-2 hover:bg-red-600 transition-colors disabled:opacity-50"
-          disabled={isLoading}
-        >
-          {isLoading ? "Signing In..." : "Sign In with Google"}
-        </button>
-
-        <div className="flex justify-between mt-2 mb-4 text-sm">
-          <button
-            onClick={handleForgotPassword}
-            className="text-blue-600 hover:underline"
-          >
-            Forgot Password?
-          </button>
-
-          <button onClick={handleGuest} className="text-gray-600 hover:underline">
-            Continue as Guest
+    <div className="login-overlay" role="dialog" aria-modal="true">
+      <section className="panel login-card login-modal">
+        <div className="login-modal__header">
+          <p className="eyebrow">Welcome back</p>
+          <button className="btn btn-ghost" onClick={onClose}>
+            Close
           </button>
         </div>
-      </div>
+
+        {showForm ? (
+          <form className="login-form" onSubmit={handleSubmit}>
+            <h2>Continue with email</h2>
+            <p>Enter the email and password tied to your AccessMap account.</p>
+            <label className="form-label" htmlFor="login-email">
+              Email
+              <input
+                id="login-email"
+                type="email"
+                className="form-input"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+              />
+            </label>
+            <label className="form-label" htmlFor="login-password">
+              Password
+              <input
+                id="login-password"
+                type="password"
+                className="form-input"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="login-card__actions">
+              <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Signing in..." : "Sign in"}
+              </button>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => setShowForm(false)}
+                disabled={isSubmitting}
+              >
+                Back
+              </button>
+            </div>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              Maybe later
+            </button>
+          </form>
+        ) : (
+          <>
+            <h2>Log in to save your accessible routes</h2>
+            <p>
+              Keep bookmarks synced across devices, follow curators you trust, and share quick accessibility snapshots while you explore.
+            </p>
+            <div className="login-card__actions">
+              <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+                Continue with email
+              </button>
+              <button className="btn btn-ghost" onClick={onClose}>
+                Maybe later
+              </button>
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
+
+function mapFirebaseError(error) {
+  const code = error?.code ?? "";
+  if (code.includes("auth/invalid-credential")) return "That email or password didn’t match.";
+  if (code.includes("auth/user-not-found")) return "No account exists for that email.";
+  if (code.includes("auth/wrong-password")) return "Incorrect password. Please try again.";
+  if (code.includes("auth/too-many-requests")) return "Too many unsuccessful attempts. Please wait and try again.";
+  return "Unable to sign in right now. Please try again.";
+}
+
+export default LoginScreen;
