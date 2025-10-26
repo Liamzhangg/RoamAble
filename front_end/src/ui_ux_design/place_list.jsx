@@ -1,9 +1,23 @@
-function PlaceList({ places = [], selectedPlaceId, onSelect }) {
+function PlaceList({
+  places = [],
+  selectedPlaceId,
+  onSelect,
+  isLoading = false,
+  errorMessage = "",
+}) {
+  if (isLoading) {
+    return (
+      <section className="panel place-list">
+        <div className="place-list__empty">Searching for accessible locations…</div>
+      </section>
+    );
+  }
+
   if (!places.length) {
     return (
       <section className="panel place-list">
         <div className="place-list__empty">
-          No matches yet. Adjust your search or filters to discover more spots.
+          {errorMessage || "No matches yet. Adjust your search or filters to discover more spots."}
         </div>
       </section>
     );
@@ -18,6 +32,7 @@ function PlaceList({ places = [], selectedPlaceId, onSelect }) {
         </div>
         <span className="pill">{places.length} listed</span>
       </header>
+      {errorMessage && <p className="route-panel__error">{errorMessage}</p>}
 
       <ul className="place-list__items">
         {places.map((place) => {
@@ -36,12 +51,16 @@ function PlaceList({ places = [], selectedPlaceId, onSelect }) {
               <div className="place-card__body">
                 <div className="place-card__title-row">
                   <h3>{place.name}</h3>
-                  <span className="rating-badge">{place.rating.toFixed(1)}</span>
+                  <span className="rating-badge">
+                    {typeof place.rating === "number" ? place.rating.toFixed(1) : "—"}
+                  </span>
                 </div>
                 <p className="place-card__location">{place.location}</p>
                 <p className="place-card__description">{place.description}</p>
                 <div className="place-card__meta">
-                  <span>{place.reviews} reviews</span>
+                  <span>
+                    {typeof place.reviews === "number" ? `${place.reviews} reviews` : "New listing"}
+                  </span>
                   <div className="place-card__tags">
                     {place.tags?.map((tag) => (
                       <span key={tag} className="tag">
