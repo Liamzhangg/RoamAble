@@ -37,7 +37,7 @@ function LoginScreen({ onClose, onSuccess }) {
         {showForm ? (
           <form className="login-form" onSubmit={handleSubmit}>
             <h2>Continue with email</h2>
-            <p>Enter the email and password tied to your AccessMap account.</p>
+            <p>Enter the email and password tied to your RoamAble account.</p>
             <label className="form-label" htmlFor="login-email">
               Email
               <input
@@ -93,7 +93,7 @@ function LoginScreen({ onClose, onSuccess }) {
           <>
             <h2>Log in to save your accessible routes</h2>
             <p>
-              Keep bookmarks synced across devices, follow curators you trust, and share quick accessibility snapshots while you explore.
+              Keep bookmarks of past routes taken, save favourite locations, and share top attractions with friends.
             </p>
             <div className="login-card__actions">
               <button className="btn btn-primary" onClick={() => setShowForm(true)}>

@@ -736,13 +736,18 @@
   justify-content: center;
   padding: 24px;
   z-index: 20;
-  pointer-events: auto; /* ensure clicks captured over map */
+  pointer-events: auto; 
 }
 
 .login-modal {
   width: min(460px, 100%);
   gap: 20px;
 }
+
+.login-card h2 {
+  margin: 0 0 3px;
+}
+
 
 .login-modal__header {
   display: flex;
