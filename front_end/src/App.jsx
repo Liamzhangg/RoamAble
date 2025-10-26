@@ -4,13 +4,14 @@ import "./App.css";
 import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
+import { signOut } from "firebase/auth";
 
 import FiltersBar from "./ui_ux_design/filters_bar.jsx";
-import SearchBox from "./ui_ux_design/search_box.jsx";
 import AddReviewModal from "./ui_ux_design/add_review_modal.jsx";
 import NavBar from "./ui_ux_design/nav_bar.jsx";
 import PlaceList from "./ui_ux_design/place_list.jsx";
 import LoginScreen from "./ui_ux_design/login_screen.jsx";
+import { auth } from "./ui_ux_design/lib/firebase.js";
 
 // Fix Leaflet marker icons for Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -61,6 +62,7 @@ function App() {
   const [submittedReviews, setSubmittedReviews] = useState([]);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [user, setUser] = useState(null);
 
   const handleSearch = (query) => setSearchQuery(query);
 
@@ -97,12 +99,24 @@ function App() {
     if (!stillVisible) setSelectedPlace(filteredPlaces[0]);
   }, [filteredPlaces, selectedPlace]);
 
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } finally {
+      setUser(null);
+    }
+  };
+
   return (
     <>
       {/* Top nav overlay */}
-      <div className="nav-overlay">
-        <NavBar onSignIn={() => setIsLoginOpen(true)} />
-      </div>
+      <NavBar
+        onSignIn={() => setIsLoginOpen(true)}
+        onSignOut={handleSignOut}
+        onSearch={handleSearch}
+        searchQuery={searchQuery}
+        user={user}
+      />
 
       {/* Full-screen map background layer */}
       <div className="map-bg" aria-hidden={false}>
@@ -172,7 +186,15 @@ function App() {
           onSubmit={handleSubmitReview}
           placeName={selectedPlace?.name}
         />
-        {isLoginOpen && <LoginScreen onClose={() => setIsLoginOpen(false)} />}
+        {isLoginOpen && (
+          <LoginScreen
+            onClose={() => setIsLoginOpen(false)}
+            onSuccess={(authUser) => {
+              setUser(authUser);
+              setIsLoginOpen(false);
+            }}
+          />
+        )}
       </div>
     </>
   );
