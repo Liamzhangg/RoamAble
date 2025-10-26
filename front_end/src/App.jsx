@@ -61,7 +61,7 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submittedReviews, setSubmittedReviews] = useState([]);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [isAttractionsOpen, setIsAttractionsOpen] = useState(true);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [user, setUser] = useState(null);
   const isInteractionLocked = isModalOpen || isFiltersOpen || isLoginOpen;
@@ -118,6 +118,7 @@ function App() {
         onSignOut={handleSignOut}
         onSearch={handleSearch}
         onOpenFilters={() => setIsFiltersOpen((previous) => !previous)}
+        onToggleAttractions={() => setIsAttractionsOpen((v) => !v)}
         searchQuery={searchQuery}
         user={user}
         isDisabled={isInteractionLocked}
@@ -159,22 +160,21 @@ function App() {
       <img className="corner-logo" src={logo} alt="Accessible Travel Finder" />
       <div className="app-shell">
         <div className={`app-shell__content ${isInteractionLocked ? "is-blocked" : ""}`} {...inertProps}>
-          {/* Places list (left column) */}
-          <div className={`overlay-panel ${isPanelOpen ? "" : "is-collapsed"}`}>
-            <div className="overlay-header">
-              <span className="overlay-title">Explore Accessible Places</span>
-              <button className="btn btn-ghost" onClick={() => setIsPanelOpen((v) => !v)}>
-                {isPanelOpen ? "Hide" : "Show"}
-              </button>
+          {/* Places list (right side panel) */}
+          {isAttractionsOpen && (
+            <div className="overlay-panel">
+              <div className="overlay-header">
+                <span className="overlay-title">Top Results</span>
+              </div>
+              <div className="overlay-panel__body">
+                <PlaceList
+                  places={filteredPlaces}
+                  selectedPlaceId={selectedPlace?.id}
+                  onSelect={setSelectedPlace}
+                />
+              </div>
             </div>
-            <div className="overlay-panel__body">
-              <PlaceList
-                places={filteredPlaces}
-                selectedPlaceId={selectedPlace?.id}
-                onSelect={setSelectedPlace}
-              />
-            </div>
-          </div>
+          )}
 
           <button className="fab" onClick={() => setIsModalOpen(true)}>+ Review</button>
         </div>
@@ -191,19 +191,6 @@ function App() {
           onSubmit={handleSubmitReview}
           placeName={selectedPlace?.name}
         />
-        {isFiltersOpen && (
-          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Access filters">
-            <div className="modal">
-              <header className="modal__header">
-                <span className="overlay-title">Access Filters</span>
-                <button className="btn btn-ghost" onClick={() => setIsFiltersOpen(false)}>Close</button>
-              </header>
-              <div className="modal__body">
-                <FiltersBar filters={filters} onChange={setFilters} bare showLabel={false} />
-              </div>
-            </div>
-          </div>
-        )}
         {isLoginOpen && (
           <LoginScreen
             onClose={() => setIsLoginOpen(false)}

@@ -28,13 +28,11 @@ function PlaceList({ places = [], selectedPlaceId, onSelect }) {
               className={`place-card ${isActive ? "is-active" : ""}`}
               onClick={() => onSelect?.(place)}
             >
-              <div className="place-card__image" aria-hidden="true">
-                {place.photo ? (
+              {place.photo && (
+                <div className="place-card__image" aria-hidden="true">
                   <img src={place.photo} alt="" loading="lazy" />
-                ) : (
-                  <span>{place.name.charAt(0)}</span>
-                )}
-              </div>
+                </div>
+              )}
               <div className="place-card__body">
                 <div className="place-card__title-row">
                   <h3>{place.name}</h3>

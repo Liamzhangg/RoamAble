@@ -12,6 +12,7 @@ function NavBar({
   onSignOut,
   onSearch,
   onOpenFilters,
+  onToggleAttractions,
   searchQuery = "",
   user,
   isDisabled = false,
@@ -95,8 +96,17 @@ function NavBar({
           )}
         </div>
         <div className="nav-bar__links">
+          <a href="#set_star_location">Set Start Location</a>
           <a href="#history">History</a>
-          <a href="#list">Top Attractions</a>
+          {/* <a
+            href="#list"
+            onClick={(e) => {
+              e.preventDefault();
+              onToggleAttractions?.();
+            }}
+          >
+            Top Attractions
+          </a> */}
           <a
             href="#filters"
             onClick={(e) => {
