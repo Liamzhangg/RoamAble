@@ -11,7 +11,7 @@
 const fetch = require('node-fetch');
 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
-const USER_AGENT = process.env.OSM_USER_AGENT || 'newhacks2025-app/1.0 (contact@example.com)';
+const USER_AGENT = process.env.OSM_USER_AGENT || 'RoamAble/1.0 (john.doe@gmail.com)';
 
 /**
  * Performs a forward geocode lookup using OpenStreetMap's Nominatim API.
