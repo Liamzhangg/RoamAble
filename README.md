@@ -4,7 +4,7 @@ Kick off for our first hackathon: NewHacks 2025 held at the University of Toront
 
 ## Quick Start
 
-1. Clone the repo: `git clone <repo-url>`
+1. Clone the repo: `git clone https://github.com/Liamzhangg/RoamAble.git`
 2. Install dependencies for each part of the stack:
    - `front_end`: `cd front_end && npm install`
    - `back_end`: `cd back_end && npm install`
