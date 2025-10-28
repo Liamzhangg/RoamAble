@@ -1,6 +1,6 @@
-# NewHacks 2025 Project
+# RoamAble | NewHacks 2025 Project
 
-Kick off for our 24-hour NewHacks 2025 build. This repository is structured to let the team ship fast: a dedicated `front_end` workspace for the UI and a `back_end` workspace for services and APIs.
+Kick off for our first hackathon: NewHacks 2025 held at the University of Toronto.
 
 ## Quick Start
 
@@ -12,67 +12,6 @@ Kick off for our 24-hour NewHacks 2025 build. This repository is structured to l
 
 ## Project Overview
 
-- **Elevator pitch:** _replace with a one-sentence description of the problem you are solving._
-- **Target users:** _define who benefits from the solution._
-- **Core features:** _list the features you plan to ship during the hackathon._
-
-## Tech Stack
-
-| Area      | Stack (tentative)              | Notes                                |
-|-----------|--------------------------------|--------------------------------------|
-| Front End | _React / Next.js / Expo / ..._ | keep all UI code in `/front_end`.    |
-| Back End  | Node.js + Express/Fastify      | keep all server code in `/back_end`. |
-| Tooling   | _Supabase / Firebase / Stripe_ | jot down external services here.     |
-
-Update this table as soon as the tech stack is locked in so the whole team stays aligned.
-
-## Architecture
-
-```text
-root
-├─ front_end/   # Front-end app (web or mobile)
-└─ back_end/    # APIs, workers, infra
-   ├─ src/
-   │  ├─ routes/        # Express route definitions
-   │  ├─ controllers/   # Request handlers
-   │  ├─ services/
-   │  │  ├─ map_data/       # OpenStreetMap integration layer
-   │  │  ├─ accessibility/  # Aggregates accessibility datasets
-   │  │  └─ routing/        # Accessibility-aware pathfinding
-   │  ├─ config/        # Env + provider setup
-   │  ├─ middleware/    # Auth/validation hooks
-   │  ├─ models/        # (Future) persistence layer
-   │  └─ server.js      # API entry point
-   └─ package.json
-
-## Data Scripts
-
-- `cd back_end && npm run fetch:opensidewalks` – pull Toronto sidewalk/footway data from the Overpass API into `back_end/data/raw/opensidewalks/`.
-- `cd back_end && npm run process:accessibility` – score sidewalk segments for wheelchair accessibility and write normalized output to `back_end/data/processed/accessible_segments.json`.
-```
-
-You can add more folders (e.g., `/docs`, `/scripts`) if they help accelerate development—just keep this diagram current.
-
-## Collaboration Tips
-
-- Create short-lived feature branches and keep PRs small.
-- Document API contracts (request/response) in the README or a `/docs` folder.
-- Capture learnings, blockers, and next steps in a running log so the whole team can sync quickly.
-
-## Deployment Checklist
-
-- [ ] Front end builds locally without manual tweaks.
-- [ ] Back end runs locally with seeded data or mocks.
-- [ ] `.env.example` files document required configuration for both sides.
-- [ ] Production deploy scripts/commands are documented.
-- [ ] Demo script rehearsed (problem, solution, walkthrough, call to action).
-
-## Demo Prep
-
-- **Deck:** outline the problem, your insight, and the solution.
-- **Live demo:** script the exact flow; capture fallback screenshots.
-- **Call to action:** end with what's next or how judges/users can engage.
-
-## Attribution
-
-Drop in any assets, libraries, datasets, or inspirations you rely on so credit is ready for submission forms.
+- Generates optimal routes for people with accessibility issues or disabilities (*Currently only working in Toronto).
+- Calculates path accessibility based on factors such as curb height, sidewalk presence, stair presence.
+- User-friendly open map interface and customizable profile with easy signup and login (*Still in development).
