@@ -2,6 +2,8 @@
 
 Kick off for our first hackathon: NewHacks 2025 held at the University of Toronto.
 
+Watch our demo: https://youtu.be/KWA2ZIvpm3I
+
 ## Quick Start
 
 1. Clone the repo: `git clone https://github.com/Liamzhangg/RoamAble.git`
