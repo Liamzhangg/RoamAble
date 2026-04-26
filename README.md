@@ -6,14 +6,6 @@ RoamAble is a full-stack accessibility routing app built for NewHacks 2025. It h
 
 Most maps optimize for speed or distance. RoamAble optimizes for accessibility signals such as curb conditions, sidewalk presence, surface quality, width, incline, and wheelchair-related OpenStreetMap tags. The backend turns sidewalk GeoJSON into a scored graph, then routes over that graph with accessibility penalties.
 
-## My Technical Contributions
-
-- Built the React/Vite map interface with Leaflet markers, route polylines, search results, filters, modals, and route summary UI.
-- Implemented the Express API for place search, reverse geocoding, location details, walking routes, transit-route scaffolding, and high-level navigation requests.
-- Designed the accessibility data pipeline that converts OpenStreetMap/OpenSidewalks-style GeoJSON into normalized sidewalk segments with accessibility scores.
-- Implemented the weighted graph routing logic using Dijkstra's algorithm over sidewalk segments.
-- Integrated Supabase authentication, recent searches, password changes, and avatar upload flows.
-
 ## Tech Stack
 
 - Frontend: React, Vite, Leaflet, React Leaflet, Supabase
