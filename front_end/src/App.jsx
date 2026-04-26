@@ -261,11 +261,13 @@ function App() {
       } catch (error) {
         if (!isCancelled) {
           setRouteInfo(null);
-          setRouteError(
-            error.message === "route_not_found"
-              ? "No accessible path was found between these points."
-              : error.message || "Unable to generate a route right now.",
-          );
+          const routeMessages = {
+            route_not_found: "No accessible path was found between these points.",
+            no_path_found: "No connected accessible path was found between these points.",
+            route_not_near_accessible_network:
+              "That point is outside the included demo routing area.",
+          };
+          setRouteError(routeMessages[error.message] || error.message || "Unable to generate a route right now.");
         }
       } finally {
         if (!isCancelled) {

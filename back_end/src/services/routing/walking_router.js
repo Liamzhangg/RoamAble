@@ -11,6 +11,10 @@ const PROCESSED_SEGMENTS_PATH = path.join(
   'processed',
   'accessible_segments.json',
 );
+const DEFAULT_MAX_SNAP_DISTANCE_METERS = 300;
+const DEFAULT_SNAP_CANDIDATE_COUNT = 100;
+const SAME_LOCATION_DISTANCE_METERS = 25;
+const SNAP_DISTANCE_COST_MULTIPLIER = 5;
 
 function loadAccessibleSegments(filepath = PROCESSED_SEGMENTS_PATH) {
   const abspath = path.resolve(filepath);
@@ -154,17 +158,25 @@ function buildGraph(segments, options = {}) {
 }
 
 function findNearestNode(coord, nodePositions) {
-  const target = coord;
-  let nearestKey = null;
-  let minDist = Infinity;
+  return findNearestNodes(coord, nodePositions, 1)[0] || {
+    key: null,
+    distance: Infinity,
+    coord: null,
+  };
+}
+
+function findNearestNodes(coord, nodePositions, limit = DEFAULT_SNAP_CANDIDATE_COUNT) {
+  const candidates = [];
   for (const [key, position] of nodePositions.entries()) {
-    const dist = haversineDistance(target, position);
-    if (dist < minDist) {
-      minDist = dist;
-      nearestKey = key;
-    }
+    candidates.push({
+      key,
+      distance: haversineDistance(coord, position),
+      coord: position,
+    });
   }
-  return { key: nearestKey, distance: minDist, coord: nodePositions.get(nearestKey) };
+  return candidates
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, limit);
 }
 
 class MinHeap {
@@ -306,15 +318,75 @@ function dijkstra(graph, startKey, endKey) {
 function findAccessibleWalkingRoute(startLatLon, endLatLon, options = {}) {
   const segments = loadAccessibleSegments(options.accessibleSegmentsPath);
   const graph = buildGraph(segments, options);
-  const start = findNearestNode(startLatLon, graph.nodePositions);
-  const end = findNearestNode(endLatLon, graph.nodePositions);
+  const maxSnapDistanceMeters =
+    options.maxSnapDistanceMeters ?? DEFAULT_MAX_SNAP_DISTANCE_METERS;
+  const candidateLimit = options.snapCandidateCount || DEFAULT_SNAP_CANDIDATE_COUNT;
+  const startCandidates = findNearestNodes(startLatLon, graph.nodePositions, candidateLimit);
+  const endCandidates = findNearestNodes(endLatLon, graph.nodePositions, candidateLimit);
+  const start = startCandidates[0] || { key: null, distance: Infinity, coord: null };
+  const end = endCandidates[0] || { key: null, distance: Infinity, coord: null };
 
   if (!start.key || !end.key) {
     throw new Error('Unable to project start or end coordinate onto the accessible network.');
   }
 
-  const result = dijkstra(graph, start.key, end.key);
-  if (!result) {
+  const startSnapCandidates = startCandidates.filter(
+    (candidate) => candidate.distance <= maxSnapDistanceMeters,
+  );
+  const endSnapCandidates = endCandidates.filter(
+    (candidate) => candidate.distance <= maxSnapDistanceMeters,
+  );
+
+  if (!startSnapCandidates.length || !endSnapCandidates.length) {
+    return {
+      success: false,
+      reason: 'route_not_near_accessible_network',
+      start: { ...start, requested: startLatLon },
+      end: { ...end, requested: endLatLon },
+      metrics: {
+        max_snap_distance_m: maxSnapDistanceMeters,
+        start_distance_to_network_m: start.distance,
+        end_distance_to_network_m: end.distance,
+      },
+    };
+  }
+
+  const candidatePairs = [];
+  startSnapCandidates.forEach((startCandidate) => {
+    endSnapCandidates.forEach((endCandidate) => {
+      candidatePairs.push({
+        start: startCandidate,
+        end: endCandidate,
+        snapDistance: startCandidate.distance + endCandidate.distance,
+      });
+    });
+  });
+  candidatePairs.sort((a, b) => a.snapDistance - b.snapDistance);
+
+  let selectedRoute = null;
+  let selectedStart = null;
+  let selectedEnd = null;
+  let selectedCost = Infinity;
+
+  candidatePairs.forEach(({ start: startCandidate, end: endCandidate, snapDistance }) => {
+    const result = dijkstra(graph, startCandidate.key, endCandidate.key);
+    if (!result) return;
+    if (
+      result.segments.length === 0 &&
+      haversineDistance(startLatLon, endLatLon) > SAME_LOCATION_DISTANCE_METERS
+    ) {
+      return;
+    }
+    const cost = (result.metrics.total_cost || 0) + snapDistance * SNAP_DISTANCE_COST_MULTIPLIER;
+    if (cost < selectedCost) {
+      selectedCost = cost;
+      selectedRoute = result;
+      selectedStart = startCandidate;
+      selectedEnd = endCandidate;
+    }
+  });
+
+  if (!selectedRoute) {
     return {
       success: false,
       reason: 'no_path_found',
@@ -323,25 +395,24 @@ function findAccessibleWalkingRoute(startLatLon, endLatLon, options = {}) {
     };
   }
 
-  const startOffset = start.coord ? haversineDistance(startLatLon, start.coord) : null;
-  const endOffset = end.coord ? haversineDistance(endLatLon, end.coord) : null;
   const fullPolyline = [
     startLatLon,
-    ...(result.polyline.length ? result.polyline : []),
+    ...(selectedRoute.polyline.length ? selectedRoute.polyline : []),
     endLatLon,
   ];
 
   return {
     success: true,
-    start: { ...start, requested: startLatLon, offset_m: startOffset },
-    end: { ...end, requested: endLatLon, offset_m: endOffset },
-    path: result.path,
-    segments: result.segments,
+    start: { ...selectedStart, requested: startLatLon, offset_m: selectedStart.distance },
+    end: { ...selectedEnd, requested: endLatLon, offset_m: selectedEnd.distance },
+    path: selectedRoute.path,
+    segments: selectedRoute.segments,
     polyline: fullPolyline,
     metrics: {
-      ...result.metrics,
-      start_distance_to_network_m: startOffset ?? 0,
-      end_distance_to_network_m: endOffset ?? 0,
+      ...selectedRoute.metrics,
+      start_distance_to_network_m: selectedStart.distance,
+      end_distance_to_network_m: selectedEnd.distance,
+      max_snap_distance_m: maxSnapDistanceMeters,
     },
   };
 }

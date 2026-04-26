@@ -1,6 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://vekzbptyhnbstckyvhyg.supabase.co"; // <-- from Project URL
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZla3picHR5aG5ic3Rja3l2aHlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0MjkwNjgsImV4cCI6MjA3NzAwNTA2OH0.CEiyFxdbuM2XkiOHLHPEdLyOq7UEhsHhatEmGOuamQQ"; // <-- from anon public key
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    "Missing Supabase config. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in front_end/.env.",
+  );
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
